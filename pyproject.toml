@@ -1,0 +1,97 @@
+[project]
+name = "wflow-cli-workspace"
+version = "0.0.0"
+description = "Workspace root for wflow-api and wflow-cli. Not published."
+requires-python = ">=3.12"
+dependencies = ["wflow-api", "wflow-cli"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+wflow-api = { workspace = true }
+wflow-cli = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov~=7.1.0",
+    "ruff~=0.15.21",
+    "mypy~=2.2.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "N", "ERA", "PL", "RUF"]
+ignore = [
+    "E501",
+    "PLR0913",
+    "PLR0917",
+    "PLR0915",
+    "PLR0912",
+    "D",
+    "ANN",
+    "TRY003",
+    "EM102",
+    "PLR2004",
+    "PLC0415",
+    "PLW1641",
+    "RUF012",
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"packages/wflow-api/src/wflow_api/models/*.py" = ["N815"]
+"packages/wflow-api/src/wflow_api/operations/*.py" = ["N803"]
+"tests/**/*.py" = ["ANN", "S101", "ARG", "PLR2004", "PT019"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["wflow_api", "wflow_cli", "tests"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+mypy_path = "packages/wflow-api/src:packages/wflow-cli/src"
+check_untyped_defs = true
+ignore_missing_imports = true
+implicit_reexport = true
+local_partial_types = true
+no_implicit_optional = true
+strict_equality = true
+strict_optional = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+namespace_packages = true
+explicit_package_bases = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.coverage.run]
+source_pkgs = ["wflow_api", "wflow_cli"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90

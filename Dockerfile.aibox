@@ -1,0 +1,105 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.13.12-slim
+
+ARG TARGETARCH
+ARG GIT_USER_NAME
+ARG GIT_USER_EMAIL
+ARG GH_CLI_VERSION=2.65.0
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_CACHE_DIR=/opt/uv-cache \
+    WORKSPACE=/home/dev/wflow-cli \
+    MCP_WORKSPACE=/home/dev/mcp-public-api-beta
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git curl ca-certificates make ripgrep less jq \
+ && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" \
+      | tar -xz -C /tmp \
+ && mv "/tmp/gh_${GH_CLI_VERSION}_linux_${TARGETARCH}/bin/gh" /usr/local/bin/gh \
+ && rm -rf /tmp/gh_* /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.10.6 /uv /uvx /usr/local/bin/
+
+RUN useradd --create-home --shell /bin/bash --uid 1000 dev \
+ && mkdir -p /opt/uv-cache /opt/prime \
+ && chown -R dev:dev /opt/uv-cache /opt/prime
+
+USER dev
+ENV PATH=/home/dev/.local/bin:$PATH
+
+RUN curl -fsSL https://claude.ai/install.sh | bash && claude --version
+
+# One .venv per repo at run time; the image carries only the uv cache they install from.
+WORKDIR /opt/prime
+COPY --chown=dev:dev pyproject.toml uv.lock ./
+COPY --chown=dev:dev packages/wflow-api/pyproject.toml packages/wflow-api/pyproject.toml
+COPY --chown=dev:dev packages/wflow-cli/pyproject.toml packages/wflow-cli/pyproject.toml
+RUN uv sync --frozen --all-packages --no-install-workspace && rm -rf /opt/prime/.venv
+
+RUN git config --global user.name "${GIT_USER_NAME}" \
+ && git config --global user.email "${GIT_USER_EMAIL}" \
+ && git config --global credential."https://github.com".helper \
+      '!f() { echo username=x-access-token; echo "password=${GITHUB_WFLOW_PAT}"; }; f'
+
+COPY --from=node:24.19.0-trixie-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24.19.0-trixie-slim /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+USER root
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+USER dev
+
+COPY --chown=dev:dev <<'EOS' /home/dev/aibox-start.sh
+#!/usr/bin/env bash
+set -euo pipefail
+: "${GITHUB_WFLOW_PAT:?GITHUB_WFLOW_PAT is required}"
+export GH_TOKEN="$GITHUB_WFLOW_PAT"
+
+git clone --branch "${AIBOX_BRANCH:-develop}" https://github.com/wflowcom/wflow-cli.git "$WORKSPACE"
+git clone --branch "${AIBOX_MCP_BRANCH:-develop}" https://github.com/wflowcom/mcp-public-api-beta.git "$MCP_WORKSPACE"
+
+if [ -d /home/dev/docs ]; then
+  ln -s /home/dev/docs "$WORKSPACE/docs"
+else
+  echo "aibox: no docs mount at /home/dev/docs; the spec and plans are not available in this box" >&2
+fi
+
+(cd "$WORKSPACE" && make install)
+(cd "$MCP_WORKSPACE" && make install)
+
+if [ -d /host-claude ]; then
+  mkdir -p "$HOME/.claude"
+  for item in CLAUDE.md skills plugins agents; do
+    if [ -e "/host-claude/$item" ]; then cp -a "/host-claude/$item" "$HOME/.claude/";
+    else echo "aibox: /host-claude/$item missing (dangling symlink?), skipping" >&2; fi
+  done
+  for f in /host-claude/*.sh; do
+    if [ -f "$f" ]; then cp -a "$f" "$HOME/.claude/"; fi
+  done
+  for f in "$HOME"/.claude/plugins/*.json; do
+    if [ -f "$f" ]; then sed -i -E "s#[^\"]*/\\.claude/plugins#$HOME/.claude/plugins#g" "$f"; fi
+  done
+  if [ -f /host-claude/settings.json ]; then
+    jq '{enabledPlugins, extraKnownMarketplaces, model, effortLevel, statusLine} | with_entries(select(.value != null))' \
+      /host-claude/settings.json > "$HOME/.claude/settings.json"
+    sed -i -E "s#[^\" ]*/\\.claude/#$HOME/.claude/#g" "$HOME/.claude/settings.json"
+  fi
+fi
+
+jq -n --arg v "$(claude --version | cut -d' ' -f1)" --arg ws "$WORKSPACE" --arg mcp "$MCP_WORKSPACE" \
+  '{hasCompletedOnboarding: true, lastOnboardingVersion: $v,
+    projects: {($ws): {hasTrustDialogAccepted: true}, ($mcp): {hasTrustDialogAccepted: true}}}' \
+  > "$HOME/.claude.json"
+
+claude auth login
+
+cd "$WORKSPACE"
+exec claude --dangerously-skip-permissions --add-dir "$MCP_WORKSPACE" "$@"
+EOS
+
+RUN chmod +x /home/dev/aibox-start.sh
+
+WORKDIR /home/dev
+CMD ["/home/dev/aibox-start.sh"]
