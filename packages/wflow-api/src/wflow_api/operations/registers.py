@@ -6,7 +6,7 @@ upstream; each model here is the item schema that the PUT on the same path docum
 """
 
 from wflow_api.client import WflowClient
-from wflow_api.guards import query_params
+from wflow_api.guards import query_params, write_body
 from wflow_api.models import (
     BusinessItemUpdateC,
     KindRegister,
@@ -25,6 +25,7 @@ from wflow_api.models import (
     Serie,
     Sort,
     VATReturnLine,
+    WriteResult,
 )
 from wflow_api.operation import operation
 
@@ -840,3 +841,701 @@ async def list_register_vehicles(
         or {}
     )
     return Paged[Register].model_validate(payload)
+
+
+@operation
+async def update_register_partners(
+    client: WflowClient, organization: OrgSlug, partners: list[PartnerFull]
+) -> WriteResult:
+    """Add or update whole partner records — suppliers and customers.
+
+    A record is matched by `id`, or by `externalId` when you are reconciling against an ERP.
+    Sending part of the register retires the rest: any record missing from the payload is marked
+    invalid, so send every partner you mean to keep, or use `patch_register_partners`, which
+    touches only the records you send. `list_register_partners` returns one page, ten records by
+    default, so page through to `totalItems` before building the payload. Each submitted object
+    replaces the stored record, so a field you leave out is reset to its default: send the full
+    record. That includes `isValid`, which defaults to true, so a payload omitting it revives a
+    record you had retired.
+
+    `peppolIds` is the exception. Omitted, it leaves the partner's existing Peppol IDs alone; sent,
+    it replaces them wholesale, so an empty list deletes every one of them.
+
+    Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
+    `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,
+    and read back empty while the other fields in the same payload save. Do not rely on this operation
+    to write account details — verify against a read before trusting a migration.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/partners"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/partners",
+        json=write_body(partners),
+    )
+    return WriteResult(action="updated", resource="registers/partners")
+
+
+@operation
+async def update_register_accounting_rules(
+    client: WflowClient, organization: OrgSlug, accountingRules: list[KindRegister]
+) -> WriteResult:
+    """Add or update whole accounting rule records — how document lines are posted to accounts.
+
+    A rule is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. `kind` ties the rule to one document kind, so a code that posts
+    differently on an incoming invoice and on a cash receipt is two records, not one. Sending part
+    of the register retires the rest: any record missing from the payload is marked invalid, so
+    send every rule you mean to keep, or use `patch_register_accounting_rules`, which touches only
+    the records you send. `list_register_accounting_rules` returns one page, ten records by
+    default, so page through to `totalItems` before building the payload. Each submitted object
+    replaces the stored record, so a field you leave out is reset to its default — `isValid`
+    included, and it defaults to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/accountingrules"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/accountingrules",
+        json=write_body(accountingRules),
+    )
+    return WriteResult(action="updated", resource="registers/accountingrules")
+
+
+@operation
+async def update_register_activities(
+    client: WflowClient, organization: OrgSlug, activities: list[Register]
+) -> WriteResult:
+    """Add or update whole activity records — what a cost was incurred doing.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Sending part of the register retires the rest: any record missing from
+    the payload is marked invalid, so send every record you mean to keep, or use
+    `patch_register_activities`, which touches only the records you send.
+    `list_register_activities` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/activities"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/activities",
+        json=write_body(activities),
+    )
+    return WriteResult(action="updated", resource="registers/activities")
+
+
+@operation
+async def update_register_business_cases(
+    client: WflowClient, organization: OrgSlug, businessCases: list[Register]
+) -> WriteResult:
+    """Add or update whole business case records — the commercial engagements costs and revenues are booked against.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Sending part of the register retires the rest: any record missing from
+    the payload is marked invalid, so send every record you mean to keep, or use
+    `patch_register_business_cases`, which touches only the records you send.
+    `list_register_business_cases` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/businesscases"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/businesscases",
+        json=write_body(businessCases),
+    )
+    return WriteResult(action="updated", resource="registers/businesscases")
+
+
+@operation
+async def update_register_business_item_categories(
+    client: WflowClient, organization: OrgSlug, businessItemCategories: list[Register]
+) -> WriteResult:
+    """Add or update whole business item category records — the groupings the item catalogue is filed under.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Business items point their `category` at a record from here, so a code
+    you rename here is the code those items refer to. Sending part of the register retires the
+    rest: any record missing from the payload is marked invalid, so send every record you mean to
+    keep, or use `patch_register_business_item_categories`, which touches only the records you
+    send. `list_register_business_item_categories` returns one page, ten records by default, so
+    page through to `totalItems` before building the payload. Each submitted object replaces the
+    stored record, so a field you leave out is reset to its default — `isValid` included, and it
+    defaults to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/businessitemcategories"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/businessitemcategories",
+        json=write_body(businessItemCategories),
+    )
+    return WriteResult(action="updated", resource="registers/businessitemcategories")
+
+
+@operation
+async def update_register_business_items(
+    client: WflowClient, organization: OrgSlug, businessItems: list[BusinessItemUpdateC]
+) -> WriteResult:
+    """Add or update whole business item records — the catalogue of goods and services on document lines.
+
+    An item is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Beyond `code` and `description` it carries `unitPrice`, `currency`,
+    `vatType`, whether it is for `purchase` or `sales`, and its `measureUnit`, `category` and
+    `partner`, each a nested object naming that record by `id` or `externalId` — `measureUnit` and
+    `category` also by `code`. Sending part of the register retires the rest: any record missing
+    from the payload is marked invalid, so send every item you mean to keep, or use
+    `patch_register_business_items`, which touches only the records you send.
+    `list_register_business_items` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a price or a link you leave out is reset to its default — `isValid` included, and it defaults
+    to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/businessitems"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/businessitems",
+        json=write_body(businessItems),
+    )
+    return WriteResult(action="updated", resource="registers/businessitems")
+
+
+@operation
+async def update_register_card_document_types(
+    client: WflowClient, organization: OrgSlug, cardDocumentTypes: list[Register]
+) -> WriteResult:
+    """Add or update whole card document type records — the types a payment made by card may take.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. This list is the card side only; the cash side is a separate register,
+    written through `update_register_cash_document_types`. Sending part of the register retires the
+    rest: any record missing from the payload is marked invalid, so send every record you mean to
+    keep, or use `patch_register_card_document_types`, which touches only the records you send.
+    `list_register_card_document_types` returns one page, ten records by default, so page through
+    to `totalItems` before building the payload. Each submitted object replaces the stored record,
+    so a field you leave out is reset to its default — `isValid` included, and it defaults to true,
+    so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/carddocumenttypes"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/carddocumenttypes",
+        json=write_body(cardDocumentTypes),
+    )
+    return WriteResult(action="updated", resource="registers/carddocumenttypes")
+
+
+@operation
+async def update_register_cash_document_types(
+    client: WflowClient, organization: OrgSlug, cashDocumentTypes: list[Register]
+) -> WriteResult:
+    """Add or update whole cash document type records — the types a cash register document may take.
+
+    Covers money in and money out alike, so a receipt and a payout draw on the records written
+    here. A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by
+    `code` when neither is given. Sending part of the register retires the rest: any record missing
+    from the payload is marked invalid, so send every record you mean to keep, or use
+    `patch_register_cash_document_types`, which touches only the records you send.
+    `list_register_cash_document_types` returns one page, ten records by default, so page through
+    to `totalItems` before building the payload. Each submitted object replaces the stored record,
+    so a field you leave out is reset to its default — `isValid` included, and it defaults to true,
+    so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/cashdocumenttypes"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/cashdocumenttypes",
+        json=write_body(cashDocumentTypes),
+    )
+    return WriteResult(action="updated", resource="registers/cashdocumenttypes")
+
+
+@operation
+async def update_register_cash_registers(
+    client: WflowClient, organization: OrgSlug, cashRegisters: list[Register]
+) -> WriteResult:
+    """Add or update whole cash register records — the tills physical money moves through.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. These are the tills themselves, one per site or per currency; what their
+    documents may be called is `update_register_cash_document_types`. Sending part of the register
+    retires the rest: any record missing from the payload is marked invalid, so send every till you
+    mean to keep, or use `patch_register_cash_registers`, which touches only the records you send.
+    `list_register_cash_registers` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/cashregisters"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/cashregisters",
+        json=write_body(cashRegisters),
+    )
+    return WriteResult(action="updated", resource="registers/cashregisters")
+
+
+@operation
+async def update_register_chart_of_accounts(
+    client: WflowClient, organization: OrgSlug, accounts: list[Register]
+) -> WriteResult:
+    """Add or update whole ledger account records — the accounts documents are posted to.
+
+    An account is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    — the account number, with `description` the account name. Sending part of the register retires
+    the rest: any record missing from the payload is marked invalid, so send every account you mean
+    to keep, or use `patch_register_chart_of_accounts`, which touches only the records you send.
+    `list_register_chart_of_accounts` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/chartofaccounts"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/chartofaccounts",
+        json=write_body(accounts),
+    )
+    return WriteResult(action="updated", resource="registers/chartofaccounts")
+
+
+@operation
+async def update_register_contracts(
+    client: WflowClient, organization: OrgSlug, contracts: list[Register]
+) -> WriteResult:
+    """Add or update whole contract records — the agreements an invoice or order is filed under.
+
+    These are lookup entries, not the contract documents themselves: a record here is the code and
+    name that documents point at. It is matched by `id`, or by `externalId` when reconciling
+    against an ERP, or by `code` when neither is given. Sending part of the register retires the
+    rest: any record missing from the payload is marked invalid, so send every record you mean to
+    keep, or use `patch_register_contracts`, which touches only the records you send.
+    `list_register_contracts` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/contracts"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/contracts",
+        json=write_body(contracts),
+    )
+    return WriteResult(action="updated", resource="registers/contracts")
+
+
+@operation
+async def update_register_cost_centers(
+    client: WflowClient, organization: OrgSlug, costCenters: list[Register]
+) -> WriteResult:
+    """Add or update whole cost center records — the organizational units costs are attributed to.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Sending part of the register retires the rest: any record missing from
+    the payload is marked invalid, so send every record you mean to keep, or use
+    `patch_register_cost_centers`, which touches only the records you send.
+    `list_register_cost_centers` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/costcenters"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/costcenters",
+        json=write_body(costCenters),
+    )
+    return WriteResult(action="updated", resource="registers/costcenters")
+
+
+@operation
+async def update_register_employees(
+    client: WflowClient, organization: OrgSlug, employees: list[Register]
+) -> WriteResult:
+    """Add or update whole employee records — the organization's own staff as documents name them.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. This register carries codes and names only; contact details, and who may
+    sign in the organization's name, belong to `update_register_organization_persons`. Sending part
+    of the register retires the rest: any record missing from the payload is marked invalid, so
+    send every employee you mean to keep, or use `patch_register_employees`, which touches only the
+    records you send. `list_register_employees` returns one page, ten records by default, so page
+    through to `totalItems` before building the payload. Each submitted object replaces the stored
+    record, so a field you leave out is reset to its default — `isValid` included, and it defaults
+    to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/employees"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/employees",
+        json=write_body(employees),
+    )
+    return WriteResult(action="updated", resource="registers/employees")
+
+
+@operation
+async def update_register_locations(
+    client: WflowClient, organization: OrgSlug, locations: list[Location]
+) -> WriteResult:
+    """Add or update whole location records — the organization's places of business.
+
+    A location is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Beyond `code` and `description` it carries `address`, the whole site
+    address as one string, and `contact`, free text naming who to reach there. Sending part of the
+    register retires the rest: any record missing from the payload is marked invalid, so send every
+    location you mean to keep, or use `patch_register_locations`, which touches only the records
+    you send. `list_register_locations` returns one page, ten records by default, so page through
+    to `totalItems` before building the payload. Each submitted object replaces the stored record,
+    so an address you leave out is reset to its default — `isValid` included, and it defaults to
+    true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/locations"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/locations",
+        json=write_body(locations),
+    )
+    return WriteResult(action="updated", resource="registers/locations")
+
+
+@operation
+async def update_register_measure_units(
+    client: WflowClient, organization: OrgSlug, measureUnits: list[Register]
+) -> WriteResult:
+    """Add or update whole measure unit records — the units a quantity on a line is counted in.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Business items point their `measureUnit` at a record from here, so a
+    code you rename here is the code those items refer to. Sending part of the register retires the
+    rest: any record missing from the payload is marked invalid, so send every unit you mean to
+    keep, or use `patch_register_measure_units`, which touches only the records you send.
+    `list_register_measure_units` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/measureunits"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/measureunits",
+        json=write_body(measureUnits),
+    )
+    return WriteResult(action="updated", resource="registers/measureunits")
+
+
+@operation
+async def update_register_organization_persons(
+    client: WflowClient, organization: OrgSlug, persons: list[OrganizationPerson]
+) -> WriteResult:
+    """Add or update whole records for the people who act on the organization's behalf.
+
+    These are the persons a contract or an order is signed, stamped or approved in the name of.
+    They have no `code`: a record is matched by `id`, or by `externalId` when reconciling against
+    an ERP, and carries `firstName` and `lastName`, an address, phone and mail, a `language` and
+    the `contractRole` the person may take. Sending part of the register retires the rest: any
+    record missing from the payload is marked invalid, so send every person you mean to keep, or
+    use `patch_register_organization_persons`, which touches only the records you send.
+    `list_register_organization_persons` returns one page, ten records by default, so page through
+    to `totalItems` before building the payload. Each submitted object replaces the stored record,
+    so a field you leave out is reset to its default — `isValid` included, and it defaults to true,
+    so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/organizationpersons"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/organizationpersons",
+        json=write_body(persons),
+    )
+    return WriteResult(action="updated", resource="registers/organizationpersons")
+
+
+@operation
+async def update_register_partner_persons(
+    client: WflowClient, organization: OrgSlug, persons: list[PartnerPersonUpdateC]
+) -> WriteResult:
+    """Add or update whole records for the contacts at partner companies.
+
+    The counterparty side of `update_register_organization_persons`: every record names in
+    `partner` the partner it belongs to, by that partner's `id` or `externalId`. There is no `code`
+    here either — a record is matched by `id`, or by `externalId` when reconciling against an ERP —
+    and it carries the person's name, address, phone and mail, `language` and `contractRole`.
+    Sending part of the register retires the rest, and "the register" means every contact of every
+    partner, not only the partners your payload names: a call carrying one contact of partner X
+    retires partner Y's contacts too. Any record missing from the payload is marked invalid, so
+    send every contact you mean to keep, or use `patch_register_partner_persons`, which touches
+    only the records you send. `list_register_partner_persons` returns one page, ten
+    records by default, so page through to `totalItems` before building the payload. Each submitted
+    object replaces the stored record, so a field you leave out is reset to its default — `isValid`
+    included, and it defaults to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/partnerpersons"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/partnerpersons",
+        json=write_body(persons),
+    )
+    return WriteResult(action="updated", resource="registers/partnerpersons")
+
+
+@operation
+async def update_register_payment_methods(
+    client: WflowClient, organization: OrgSlug, paymentMethods: list[PaymentMethods]
+) -> WriteResult:
+    """Add or update whole payment method records — how a document is settled.
+
+    A method is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. `kind` ties the method to one document kind, so what an incoming invoice
+    may carry is a different record from what a cash slip may carry. Sending part of the register
+    retires the rest: any record missing from the payload is marked invalid, so send every method
+    you mean to keep, or use `patch_register_payment_methods`, which touches only the records you
+    send. `list_register_payment_methods` returns one page, ten records by default, so page through
+    to `totalItems` before building the payload. Each submitted object replaces the stored record,
+    so a field you leave out is reset to its default — `isValid` included, and it defaults to true,
+    so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/paymentmethods"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/paymentmethods",
+        json=write_body(paymentMethods),
+    )
+    return WriteResult(action="updated", resource="registers/paymentmethods")
+
+
+@operation
+async def update_register_projects(client: WflowClient, organization: OrgSlug, projects: list[Register]) -> WriteResult:
+    """Add or update whole project records — the bodies of work costs and revenues are attributed to.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. Sending part of the register retires the rest: any record missing from
+    the payload is marked invalid, so send every record you mean to keep, or use
+    `patch_register_projects`, which touches only the records you send. `list_register_projects`
+    returns one page, ten records by default, so page through to `totalItems` before building the
+    payload. Each submitted object replaces the stored record, so a field you leave out is reset to
+    its default — `isValid` included, and it defaults to true, so a payload omitting it revives a
+    record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/projects"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/projects",
+        json=write_body(projects),
+    )
+    return WriteResult(action="updated", resource="registers/projects")
+
+
+@operation
+async def update_register_series(client: WflowClient, organization: OrgSlug, series: list[Serie]) -> WriteResult:
+    """Add or update whole numbering series records — the sequences documents take their numbers from.
+
+    A series is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. `kind` scopes it to one document kind and, on invoices, `invoiceType`
+    scopes it further, so tax invoices and credit notes number from separate records. Sending part
+    of the register retires the rest: any record missing from the payload is marked invalid, so
+    send every series you mean to keep, or use `patch_register_series`, which touches only the
+    records you send. `list_register_series` returns one page, ten records by default, so page
+    through to `totalItems` before building the payload. Each submitted object replaces the stored
+    record, so a field you leave out is reset to its default — `isValid` included, and it defaults
+    to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/series"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/series",
+        json=write_body(series),
+    )
+    return WriteResult(action="updated", resource="registers/series")
+
+
+@operation
+async def update_register_vat_control_statement_lines(
+    client: WflowClient, organization: OrgSlug, lines: list[Register]
+) -> WriteResult:
+    """Add or update whole VAT control statement line records — the sections a document is itemised in.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given. The control statement reports transactions one by one, which is why its
+    sections are a register of their own alongside `update_register_vat_return_lines`. Sending part
+    of the register retires the rest: any record missing from the payload is marked invalid, so
+    send every line you mean to keep, or use `patch_register_vat_control_statement_lines`, which
+    touches only the records you send. `list_register_vat_control_statement_lines` returns one
+    page, ten records by default, so page through to `totalItems` before building the payload. Each
+    submitted object replaces the stored record, so a field you leave out is reset to its default —
+    `isValid` included, and it defaults to true, so a payload omitting it revives a record you had
+    retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/vatcontrolstatementlines"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/vatcontrolstatementlines",
+        json=write_body(lines),
+    )
+    return WriteResult(action="updated", resource="registers/vatcontrolstatementlines")
+
+
+@operation
+async def update_register_vat_return_lines(
+    client: WflowClient, organization: OrgSlug, lines: list[VATReturnLine]
+) -> WriteResult:
+    """Add or update whole VAT return line records — the rows a document's tax is reported on.
+
+    A line is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`
+    when neither is given, and `reverseCharge` marks the lines that report tax the recipient
+    accounts for. Sending part of the register retires the rest: any record missing from the
+    payload is marked invalid, so send every line you mean to keep, or use
+    `patch_register_vat_return_lines`, which touches only the records you send.
+    `list_register_vat_return_lines` returns one page, ten records by default, so page through to
+    `totalItems` before building the payload. Each submitted object replaces the stored record, so
+    a field you leave out is reset to its default — `isValid` included, and it defaults to true, so
+    a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/vatreturnlines"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/vatreturnlines",
+        json=write_body(lines),
+    )
+    return WriteResult(action="updated", resource="registers/vatreturnlines")
+
+
+@operation
+async def update_register_vat_reverse_charge_codes(
+    client: WflowClient, organization: OrgSlug, codes: list[Register]
+) -> WriteResult:
+    """Add or update whole VAT reverse charge code records — the codes naming a reverse charge supply.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code` —
+    the supply code the law requires on a reverse charge document, with `description` the supply it
+    covers. Sending part of the register retires the rest: any record missing from the payload is
+    marked invalid, so send every code you mean to keep, or use
+    `patch_register_vat_reverse_charge_codes`, which touches only the records you send.
+    `list_register_vat_reverse_charge_codes` returns one page, ten records by default, so page
+    through to `totalItems` before building the payload. Each submitted object replaces the stored
+    record, so a field you leave out is reset to its default — `isValid` included, and it defaults
+    to true, so a payload omitting it revives a record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/vatreversechargecodes"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/vatreversechargecodes",
+        json=write_body(codes),
+    )
+    return WriteResult(action="updated", resource="registers/vatreversechargecodes")
+
+
+@operation
+async def update_register_vehicles(client: WflowClient, organization: OrgSlug, vehicles: list[Register]) -> WriteResult:
+    """Add or update whole vehicle records — the cars and machines travel and fuel documents name.
+
+    A record is matched by `id`, or by `externalId` when reconciling against an ERP, or by `code`,
+    typically the registration. Sending part of the register retires the rest: any record missing
+    from the payload is marked invalid, so send every vehicle you mean to keep, or use
+    `patch_register_vehicles`, which touches only the records you send. `list_register_vehicles`
+    returns one page, ten records by default, so page through to `totalItems` before building the
+    payload. Each submitted object replaces the stored record, so a field you leave out is reset to
+    its default — `isValid` included, and it defaults to true, so a payload omitting it revives a
+    record you had retired.
+
+    Fields: on the result —
+
+    - `action` — "updated"
+    - `resource` — "registers/vehicles"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/registers/vehicles",
+        json=write_body(vehicles),
+    )
+    return WriteResult(action="updated", resource="registers/vehicles")
