@@ -7,7 +7,6 @@ from tests.api.operations.test_register_writes import UPDATE_OPERATIONS
 from tests.helpers import body_source
 from wflow_api.operations import operations
 
-EXPECTED_OPERATIONS = 173
 CALLS_THROUGH_A_HELPER = {
     "get_me": "reads through guards.current_account, which also refuses a null account",
 }
@@ -25,8 +24,15 @@ def test_no_operation_wraps_an_endpoint_that_does_not_exist(wflow_spec):
     assert library_names() <= spec_names(wflow_spec), library_names() - spec_names(wflow_spec)
 
 
-def test_the_operation_count():
-    assert len(operations()) == len(library_names()) == EXPECTED_OPERATIONS
+def test_full_coverage(wflow_spec):
+    assert library_names() == spec_names(wflow_spec)
+    assert len(library_names()) == 173
+
+
+def test_every_operation_is_counted_once():
+    names = [fn.__name__ for _, fn in operations()]
+
+    assert len(names) == len(set(names)) == 173
 
 
 def test_the_spec_still_documents_173_operations(wflow_spec):
