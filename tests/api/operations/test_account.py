@@ -81,6 +81,14 @@ async def test_list_organizations_returns_the_domain_shape():
     assert result[0].subdomain == "data-test"
 
 
+@pytest.mark.parametrize("body", [42, "data-test", True])
+async def test_a_scalar_where_the_organizations_belong_is_a_wflow_error(body):
+    client, _ = mock_response(200, json=body)
+
+    with pytest.raises(WflowError, match=r"myorganizations returned .*not an array"):
+        await account.list_organizations(client)
+
+
 def test_operations_lists_only_what_each_module_defines():
     found = operations()
     names = [fn.__name__ for _, fn in found]

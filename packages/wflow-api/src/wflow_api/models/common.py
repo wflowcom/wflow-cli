@@ -32,7 +32,7 @@ WflowTimestamp = Annotated[datetime, AfterValidator(_unset_date_is_none), WithJs
 
 wflow sends these with no UTC offset — "2026-05-13T07:42:45.010" — which pydantic parses
 into a naive datetime and re-serializes just as offsetless. That is not RFC 3339, so a
-field declaring `format: "date-time"` makes the MCP client reject the whole response.
+field declaring `format: "date-time"` makes a schema-validating client reject the whole response.
 Attaching an offset here would make the schema true only if these are UTC, which wflow
 does not state; publishing a plain string claims no more than wflow actually sends.
 
@@ -96,7 +96,7 @@ Page = Annotated[int | None, Field(default=None, description="Page number, zero-
 
 
 class WriteResult(WflowModel):
-    """What a tool returns when wflow accepted a change.
+    """What an operation returns when wflow accepted a change.
 
     Most write endpoints answer 200 with no body, so there is nothing to hand back but
     a confirmation. Returning one shape for all of them means a caller never has to ask

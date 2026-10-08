@@ -1,3 +1,4 @@
+import ast
 import inspect
 import re
 import typing
@@ -6,7 +7,7 @@ import pytest
 
 from tests.helpers import body_source
 from wflow_api.client import WflowClient
-from wflow_api.models.common import FileContent, Paged, WflowModel, WriteResult
+from wflow_api.models.common import FileContent, OrgSlug, Paged, WflowModel, WriteResult
 from wflow_api.operations import operations
 
 SCALAR_RETURNS = {
@@ -53,6 +54,9 @@ MCP_ONLY = (
     "Reconnect",
     "this tool",
 )
+UNENCODED_PLACEHOLDERS = {
+    "str(value).lower()": "lock_* sends a bool as true/false, which can never carry a slash or a dot",
+}
 MCP_TERMS = re.compile(r"\btools?\b|MCP|reconnect|input schema", re.IGNORECASE)
 
 
@@ -81,7 +85,7 @@ def test_there_is_at_least_one_operation(ops):
 def test_every_operation_is_a_validated_coroutine(ops):
     for name, fn in ops.items():
         assert inspect.iscoroutinefunction(fn), f"{name} is not async"
-        assert inspect.unwrap(fn) is not fn, f"{name} is not wrapped by @operation"
+        assert fn.__code__.co_qualname == "operation.<locals>.wrapper", f"{name} is not wrapped by @operation"
 
 
 def test_every_operation_takes_the_client_first(ops):
@@ -168,3 +172,25 @@ def test_every_filterable_operation_carries_the_query_syntax(ops):
     for name, fn in filterable.items():
         for rule in ("!=", ">=", "space", "and"):
             assert rule in described(fn, "query"), f"{name} does not document {rule!r} on `query`"
+
+
+def api_placeholders(fn) -> list[str]:
+    found = []
+    for node in ast.walk(ast.parse(body_source(fn))):
+        if isinstance(node, ast.JoinedStr) and str(getattr(node.values[0], "value", "")).startswith("/api/"):
+            found += [ast.unparse(part.value) for part in node.values if isinstance(part, ast.FormattedValue)]
+    return found
+
+
+def test_every_operation_taking_an_organization_validates_it_as_a_slug(ops):
+    for name, fn in ops.items():
+        if "organization" in inspect.signature(fn).parameters:
+            hint = typing.get_type_hints(inspect.unwrap(fn), include_extras=True)["organization"]
+            assert hint == OrgSlug, f"{name} annotates organization as {hint!r}, not OrgSlug"
+
+
+def test_every_path_placeholder_is_the_slug_or_an_encoded_segment(ops):
+    for name, fn in ops.items():
+        for placeholder in api_placeholders(fn):
+            safe = placeholder == "organization" or placeholder.startswith("path_segment(")
+            assert safe or placeholder in UNENCODED_PLACEHOLDERS, f"{name} puts {{{placeholder}}} in its path unencoded"

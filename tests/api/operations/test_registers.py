@@ -116,11 +116,14 @@ async def test_the_paging_envelope_survives_onto_the_result():
 async def test_the_paging_arguments_reach_wflow():
     client, requests = mock_wflow({"/api/acme/registers/partners": PARTNERS_BODY})
 
-    await registers.list_register_partners(client, "acme", search="noname", sort="name asc", pageSize=50, page=0)
+    await registers.list_register_partners(
+        client, "acme", search="noname", sort="name asc", query='name = "X"', pageSize=50, page=0
+    )
 
     params = requests[0].url.params
     assert params["search"] == "noname"
     assert params["sort"] == "name asc"
+    assert params["query"] == 'name = "X"'
     assert params["pageSize"] == "50"
     assert params["page"] == "0"
 

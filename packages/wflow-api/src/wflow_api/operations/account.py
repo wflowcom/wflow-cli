@@ -1,7 +1,7 @@
 """Account: who the caller is, and which workspaces they can reach."""
 
 from wflow_api.client import WflowClient
-from wflow_api.guards import current_account
+from wflow_api.guards import current_account, ensure_list
 from wflow_api.models import Account, OrganizationDomain, OrgSlug
 from wflow_api.operation import operation
 
@@ -41,5 +41,6 @@ async def list_organizations(client: WflowClient) -> list[OrganizationDomain]:
 
     Takes no arguments — start here when you do not know which workspace the user means.
     """
-    payload = await client.request("GET", "/api/user/myorganizations") or []
-    return [OrganizationDomain.model_validate(item) for item in payload]
+    path = "/api/user/myorganizations"
+    payload = await client.request("GET", path) or []
+    return [OrganizationDomain.model_validate(item) for item in ensure_list(path, payload)]
