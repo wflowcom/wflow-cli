@@ -1539,3 +1539,735 @@ async def update_register_vehicles(client: WflowClient, organization: OrgSlug, v
         json=write_body(vehicles),
     )
     return WriteResult(action="updated", resource="registers/vehicles")
+
+
+@operation
+async def patch_register_partners(
+    client: WflowClient, organization: OrgSlug, partners: list[PartnerFull]
+) -> WriteResult:
+    """Add or update partner records, sparing the rest.
+
+    Send `id` or `externalId` to identify the record, plus the record's other fields. wflow
+    validates each item as a whole record, so a field you omit is reset to its default rather than
+    kept — send the whole record, not just what changed. What a patch does leave alone is the
+    records you keep out of the payload: they are not retired, and that is the one difference from
+    `update_register_partners`. Sending a field as `null` is no different from omitting it: the
+    `null` is dropped before the request leaves, and wflow ignores an explicit null in any case. To
+    retire a single record, send it with `isValid: false` — and carry that field in every later
+    payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    `peppolIds` is the exception to all of that. Omitted, it leaves the partner's existing Peppol
+    IDs alone; sent, it is synchronised to match your list, so an ID you did not include is deleted
+    and an empty list deletes every one.
+
+    Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
+    `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,
+    and read back empty while the other fields in the same payload save. Do not rely on this operation
+    to write account details — verify against a read before trusting a migration.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/partners"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/partners",
+        json=write_body(partners),
+    )
+    return WriteResult(action="patched", resource="registers/partners")
+
+
+@operation
+async def patch_register_accounting_rules(
+    client: WflowClient, organization: OrgSlug, accountingRules: list[KindRegister]
+) -> WriteResult:
+    """Add or update accounting rule records, sparing the rest — how document lines are posted to accounts.
+
+    Send `id` or `externalId` to identify the rule, or `code` when neither is given, plus the
+    record's other fields. `kind` ties a rule to one document kind, so a code that posts
+    differently on an incoming invoice and on a cash receipt is two records to patch, not one.
+    wflow validates each item as a whole record, so a field you omit is reset to its default rather
+    than kept — send the whole record, not just what changed. What a patch does leave alone is the
+    rules you keep out of the payload: they are not retired, and that is the one difference from
+    `update_register_accounting_rules`. Sending a field as `null` is no different from omitting it:
+    the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/accountingrules"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/accountingrules",
+        json=write_body(accountingRules),
+    )
+    return WriteResult(action="patched", resource="registers/accountingrules")
+
+
+@operation
+async def patch_register_activities(
+    client: WflowClient, organization: OrgSlug, activities: list[Register]
+) -> WriteResult:
+    """Add or update activity records, sparing the rest — what a cost was incurred doing.
+
+    Send `id` or `externalId` to identify the record, or `code` when neither is given, plus the
+    record's other fields. wflow validates each item as a whole record, so a field you omit is
+    reset to its default rather than kept — send the whole record, not just what changed. What a
+    patch does leave alone is the records you keep out of the payload: they are not retired, and
+    that is the one difference from `update_register_activities`. Sending a field as `null` is no
+    different from omitting it: the `null` is dropped before the request leaves, and wflow ignores
+    an explicit null in any case. To retire a single record, send it with `isValid: false` — and
+    carry that field in every later payload for it, because `isValid` defaults to true and a write
+    that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/activities"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/activities",
+        json=write_body(activities),
+    )
+    return WriteResult(action="patched", resource="registers/activities")
+
+
+@operation
+async def patch_register_business_cases(
+    client: WflowClient, organization: OrgSlug, businessCases: list[Register]
+) -> WriteResult:
+    """Add or update business cases, sparing the rest — the commercial engagements costs and revenues are booked against.
+
+    Send `id` or `externalId` to identify the record, or `code` when neither is given, plus the
+    record's other fields. wflow validates each item as a whole record, so a field you omit is
+    reset to its default rather than kept — send the whole record, not just what changed. What a
+    patch does leave alone is the records you keep out of the payload: they are not retired, and
+    that is the one difference from `update_register_business_cases`. Sending a field as `null` is
+    no different from omitting it: the `null` is dropped before the request leaves, and wflow
+    ignores an explicit null in any case. To retire a single record, send it with `isValid: false`
+    — and carry that field in every later payload for it, because `isValid` defaults to true and a
+    write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/businesscases"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/businesscases",
+        json=write_body(businessCases),
+    )
+    return WriteResult(action="patched", resource="registers/businesscases")
+
+
+@operation
+async def patch_register_business_item_categories(
+    client: WflowClient, organization: OrgSlug, businessItemCategories: list[Register]
+) -> WriteResult:
+    """Add or update business item category records, sparing the rest — the groupings the item catalogue is filed under.
+
+    Send `id` or `externalId` to identify the record, or `code` when neither is given, plus the
+    record's other fields. Business items point their `category` at a record from here, so a `code`
+    you patch here is the code those items refer to. wflow validates each item as a whole record,
+    so a field you omit is reset to its default rather than kept — send the whole record, not just
+    what changed. What a patch does leave alone is the records you keep out of the payload: they
+    are not retired, and that is the one difference from
+    `update_register_business_item_categories`. Sending a field as `null` is no different from
+    omitting it: the `null` is dropped before the request leaves, and wflow ignores an explicit
+    null in any case. To retire a single record, send it with `isValid: false` — and carry that
+    field in every later payload for it, because `isValid` defaults to true and a write that omits
+    it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/businessitemcategories"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/businessitemcategories",
+        json=write_body(businessItemCategories),
+    )
+    return WriteResult(action="patched", resource="registers/businessitemcategories")
+
+
+@operation
+async def patch_register_business_items(
+    client: WflowClient, organization: OrgSlug, businessItems: list[BusinessItemUpdateC]
+) -> WriteResult:
+    """Add or update business item records, sparing the rest — the catalogue of goods and services on document lines.
+
+    Send `id` or `externalId` to identify the item, or `code` when neither is given, plus the
+    record's other fields — a `unitPrice` change still has to carry the rest of the item with it.
+    `category`, `measureUnit` and `partner` are nested objects naming that record by `id` or
+    `externalId`, and `category` and `measureUnit` also by `code`; a nested object is replaced
+    wholesale too, so re-point one by sending it complete, alongside the rest of the record. wflow
+    validates each item as a whole record, so a field you omit is reset to its default rather than
+    kept — send the whole record, not just what changed. What a patch does leave alone is the items
+    you keep out of the payload: they are not retired, and that is the one difference from
+    `update_register_business_items`. Sending a field as `null` is no different from omitting it:
+    the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/businessitems"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/businessitems",
+        json=write_body(businessItems),
+    )
+    return WriteResult(action="patched", resource="registers/businessitems")
+
+
+@operation
+async def patch_register_card_document_types(
+    client: WflowClient, organization: OrgSlug, cardDocumentTypes: list[Register]
+) -> WriteResult:
+    """Add or update card document type records, sparing the rest — the types a payment made by card may take.
+
+    Send `id` or `externalId` to identify the record, or `code` when neither is given, plus the
+    record's other fields. This is the card side only; the cash side is a separate register,
+    patched through `patch_register_cash_document_types`. wflow validates each item as a whole
+    record, so a field you omit is reset to its default rather than kept — send the whole record,
+    not just what changed. What a patch does leave alone is the records you keep out of the
+    payload: they are not retired, and that is the one difference from
+    `update_register_card_document_types`. Sending a field as `null` is no different from omitting
+    it: the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/carddocumenttypes"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/carddocumenttypes",
+        json=write_body(cardDocumentTypes),
+    )
+    return WriteResult(action="patched", resource="registers/carddocumenttypes")
+
+
+@operation
+async def patch_register_cash_document_types(
+    client: WflowClient, organization: OrgSlug, cashDocumentTypes: list[Register]
+) -> WriteResult:
+    """Add or update cash document type records, sparing the rest — the types a cash register document may take.
+
+    Covers money in and money out alike, so a receipt and a payout are separate records here. Send
+    `id` or `externalId` to identify one, or `code` when neither is given, plus the record's other
+    fields. wflow validates each item as a whole record, so a field you omit is reset to its
+    default rather than kept — send the whole record, not just what changed. What a patch does
+    leave alone is the records you keep out of the payload: they are not retired, and that is the
+    one difference from `update_register_cash_document_types`. Sending a field as `null` is no
+    different from omitting it: the `null` is dropped before the request leaves, and wflow ignores
+    an explicit null in any case. To retire a single record, send it with `isValid: false` — and
+    carry that field in every later payload for it, because `isValid` defaults to true and a write
+    that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/cashdocumenttypes"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/cashdocumenttypes",
+        json=write_body(cashDocumentTypes),
+    )
+    return WriteResult(action="patched", resource="registers/cashdocumenttypes")
+
+
+@operation
+async def patch_register_cash_registers(
+    client: WflowClient, organization: OrgSlug, cashRegisters: list[Register]
+) -> WriteResult:
+    """Add or update cash register records, sparing the rest — the tills physical money moves through.
+
+    These are the tills themselves, one per site or per currency; what their documents may be
+    called is `patch_register_cash_document_types`. Send `id` or `externalId` to identify a till,
+    or `code` when neither is given, plus the record's other fields. wflow validates each item as a
+    whole record, so a field you omit is reset to its default rather than kept — send the whole
+    record, not just what changed. What a patch does leave alone is the tills you keep out of the
+    payload: they are not retired, and that is the one difference from
+    `update_register_cash_registers`. Sending a field as `null` is no different from omitting it:
+    the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/cashregisters"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/cashregisters",
+        json=write_body(cashRegisters),
+    )
+    return WriteResult(action="patched", resource="registers/cashregisters")
+
+
+@operation
+async def patch_register_chart_of_accounts(
+    client: WflowClient, organization: OrgSlug, accounts: list[Register]
+) -> WriteResult:
+    """Add or update ledger account records, sparing the rest — the accounts documents are posted to.
+
+    Send `id` or `externalId` to identify the account, or `code` — the account number — when
+    neither is given, plus the record's other fields; renaming an account changes `description`,
+    sent with the rest. wflow validates each item as a whole record, so a field you omit is reset to its default
+    rather than kept — send the whole record, not just what changed. What a patch does leave alone
+    is the accounts you keep out of the payload: they are not retired, and that is the one
+    difference from `update_register_chart_of_accounts`. Sending a field as `null` is no different
+    from omitting it: the `null` is dropped before the request leaves, and wflow ignores an
+    explicit null in any case. To retire a single record, send it with `isValid: false` — and carry
+    that field in every later payload for it, because `isValid` defaults to true and a write that
+    omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/chartofaccounts"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/chartofaccounts",
+        json=write_body(accounts),
+    )
+    return WriteResult(action="patched", resource="registers/chartofaccounts")
+
+
+@operation
+async def patch_register_contracts(
+    client: WflowClient, organization: OrgSlug, contracts: list[Register]
+) -> WriteResult:
+    """Add or update contract records, sparing the rest — the agreements an invoice or order is filed under.
+
+    These are lookup entries, not the contract documents themselves: a record here is the code and
+    name that documents point at. Send `id` or `externalId` to identify one, or `code` when neither
+    is given, plus the record's other fields. wflow validates each item as a whole record, so a
+    field you omit is reset to its default rather than kept — send the whole record, not just what
+    changed. What a patch does leave alone is the records you keep out of the payload: they are not
+    retired, and that is the one difference from `update_register_contracts`. Sending a field as
+    `null` is no different from omitting it: the `null` is dropped before the request leaves, and
+    wflow ignores an explicit null in any case. To retire a single record, send it with `isValid:
+    false` — and carry that field in every later payload for it, because `isValid` defaults to true
+    and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/contracts"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/contracts",
+        json=write_body(contracts),
+    )
+    return WriteResult(action="patched", resource="registers/contracts")
+
+
+@operation
+async def patch_register_cost_centers(
+    client: WflowClient, organization: OrgSlug, costCenters: list[Register]
+) -> WriteResult:
+    """Add or update cost center records, sparing the rest — the organizational units costs are attributed to.
+
+    Send `id` or `externalId` to identify the record, or `code` when neither is given, plus the
+    record's other fields. wflow validates each item as a whole record, so a field you omit is
+    reset to its default rather than kept — send the whole record, not just what changed. What a
+    patch does leave alone is the records you keep out of the payload: they are not retired, and
+    that is the one difference from `update_register_cost_centers`. Sending a field as `null` is no
+    different from omitting it: the `null` is dropped before the request leaves, and wflow ignores
+    an explicit null in any case. To retire a single record, send it with `isValid: false` — and
+    carry that field in every later payload for it, because `isValid` defaults to true and a write
+    that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/costcenters"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/costcenters",
+        json=write_body(costCenters),
+    )
+    return WriteResult(action="patched", resource="registers/costcenters")
+
+
+@operation
+async def patch_register_employees(
+    client: WflowClient, organization: OrgSlug, employees: list[Register]
+) -> WriteResult:
+    """Add or update employee records, sparing the rest — the organization's own staff as documents name them.
+
+    This register carries codes and names only; contact details, and who may sign in the
+    organization's name, belong to `patch_register_organization_persons`. Send `id` or `externalId`
+    to identify an employee, or `code` when neither is given, plus the record's other fields. wflow
+    validates each item as a whole record, so a field you omit is reset to its default rather than
+    kept — send the whole record, not just what changed. What a patch does leave alone is the
+    employees you keep out of the payload: they are not retired, and that is the one difference
+    from `update_register_employees`. Sending a field as `null` is no different from omitting it:
+    the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/employees"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/employees",
+        json=write_body(employees),
+    )
+    return WriteResult(action="patched", resource="registers/employees")
+
+
+@operation
+async def patch_register_locations(
+    client: WflowClient, organization: OrgSlug, locations: list[Location]
+) -> WriteResult:
+    """Add or update location records, sparing the rest — the organization's places of business.
+
+    Send `id` or `externalId` to identify the site, or `code` when neither is given, plus the
+    record's other fields: `address` is the whole site address as one string, so a move changes that
+    one field but still sends the others, and `contact` is free text naming who to reach there. wflow validates each item as a
+    whole record, so a field you omit is reset to its default rather than kept — send the whole
+    record, not just what changed. What a patch does leave alone is the sites you keep out of the
+    payload: they are not retired, and that is the one difference from `update_register_locations`.
+    Sending a field as `null` is no different from omitting it: the `null` is dropped before the
+    request leaves, and wflow ignores an explicit null in any case. To retire a single record, send
+    it with `isValid: false` — and carry that field in every later payload for it, because
+    `isValid` defaults to true and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/locations"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/locations",
+        json=write_body(locations),
+    )
+    return WriteResult(action="patched", resource="registers/locations")
+
+
+@operation
+async def patch_register_measure_units(
+    client: WflowClient, organization: OrgSlug, measureUnits: list[Register]
+) -> WriteResult:
+    """Add or update measure unit records, sparing the rest — the units a quantity on a line is counted in.
+
+    Send `id` or `externalId` to identify the unit, or `code` when neither is given, plus the
+    record's other fields. Business items point their `measureUnit` at a record from here, so a
+    `code` you patch here is the code those items refer to. wflow validates each item as a whole
+    record, so a field you omit is reset to its default rather than kept — send the whole record,
+    not just what changed. What a patch does leave alone is the units you keep out of the payload:
+    they are not retired, and that is the one difference from `update_register_measure_units`.
+    Sending a field as `null` is no different from omitting it: the `null` is dropped before the
+    request leaves, and wflow ignores an explicit null in any case. To retire a single record, send
+    it with `isValid: false` — and carry that field in every later payload for it, because
+    `isValid` defaults to true and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/measureunits"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/measureunits",
+        json=write_body(measureUnits),
+    )
+    return WriteResult(action="patched", resource="registers/measureunits")
+
+
+@operation
+async def patch_register_organization_persons(
+    client: WflowClient, organization: OrgSlug, persons: list[OrganizationPerson]
+) -> WriteResult:
+    """Add or update records, sparing the rest, for the people who act on the organization's behalf.
+
+    These are the persons a contract or an order is signed, stamped or approved in the name of.
+    They have no `code`: send `id` or `externalId` to identify one, plus the record's other fields
+    — a new `phoneNo`, `mailAddress` or `contractRole` travels with the rest of them. wflow validates each
+    item as a whole record, so a field you omit is reset to its default rather than kept — send the
+    whole record, not just what changed. What a patch does leave alone is the people you keep out
+    of the payload: they are not retired, and that is the one difference from
+    `update_register_organization_persons`. Sending a field as `null` is no different from omitting
+    it: the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/organizationpersons"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/organizationpersons",
+        json=write_body(persons),
+    )
+    return WriteResult(action="patched", resource="registers/organizationpersons")
+
+
+@operation
+async def patch_register_partner_persons(
+    client: WflowClient, organization: OrgSlug, persons: list[PartnerPersonUpdateC]
+) -> WriteResult:
+    """Add or update records, sparing the rest, for the contacts at partner companies.
+
+    The counterparty side of `patch_register_organization_persons`. There is no `code` here either:
+    send `id` or `externalId` to identify the contact, plus the record's other fields — a name, an
+    address, `phoneNo`, `mailAddress`, `language` or `contractRole`. `partner` names the partner
+    the contact belongs to, by that partner's `id` or `externalId`. Send it on every call, not only
+    when moving a contact: a payload omitting it is rejected. wflow validates each item as a
+    whole record,
+    so a field you omit is reset to its default rather than kept — send the whole record, not just
+    what changed. What a patch does leave alone is the contacts you keep out of the payload: they
+    are not retired, and that is the one difference from `update_register_partner_persons`. Sending
+    a field as `null` is no different from omitting it: the `null` is dropped before the request
+    leaves, and wflow ignores an explicit null in any case. To retire a single record, send it with
+    `isValid: false` — and carry that field in every later payload for it, because `isValid`
+    defaults to true and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/partnerpersons"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/partnerpersons",
+        json=write_body(persons),
+    )
+    return WriteResult(action="patched", resource="registers/partnerpersons")
+
+
+@operation
+async def patch_register_payment_methods(
+    client: WflowClient, organization: OrgSlug, paymentMethods: list[PaymentMethods]
+) -> WriteResult:
+    """Add or update payment method records, sparing the rest — how a document is settled.
+
+    Send `id` or `externalId` to identify the method, or `code` when neither is given, plus the
+    record's other fields. `kind` ties a method to one document kind, so what an incoming invoice
+    may carry is a separate record from what a cash slip may carry, and each is patched on its own.
+    wflow validates each item as a whole record, so a field you omit is reset to its default rather
+    than kept — send the whole record, not just what changed. What a patch does leave alone is the
+    methods you keep out of the payload: they are not retired, and that is the one difference from
+    `update_register_payment_methods`. Sending a field as `null` is no different from omitting it:
+    the `null` is dropped before the request leaves, and wflow ignores an explicit null in any
+    case. To retire a single record, send it with `isValid: false` — and carry that field in every
+    later payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/paymentmethods"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/paymentmethods",
+        json=write_body(paymentMethods),
+    )
+    return WriteResult(action="patched", resource="registers/paymentmethods")
+
+
+@operation
+async def patch_register_projects(client: WflowClient, organization: OrgSlug, projects: list[Register]) -> WriteResult:
+    """Add or update project records, sparing the rest — the bodies of work costs and revenues are attributed to.
+
+    Send `id` or `externalId` to identify the record, or `code` when neither is given, plus the
+    record's other fields. wflow validates each item as a whole record, so a field you omit is
+    reset to its default rather than kept — send the whole record, not just what changed. What a
+    patch does leave alone is the records you keep out of the payload: they are not retired, and
+    that is the one difference from `update_register_projects`. Sending a field as `null` is no
+    different from omitting it: the `null` is dropped before the request leaves, and wflow ignores
+    an explicit null in any case. To retire a single record, send it with `isValid: false` — and
+    carry that field in every later payload for it, because `isValid` defaults to true and a write
+    that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/projects"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/projects",
+        json=write_body(projects),
+    )
+    return WriteResult(action="patched", resource="registers/projects")
+
+
+@operation
+async def patch_register_series(client: WflowClient, organization: OrgSlug, series: list[Serie]) -> WriteResult:
+    """Add or update numbering series records, sparing the rest — the sequences documents take their numbers from.
+
+    Send `id` or `externalId` to identify the series, or `code` when neither is given, plus the
+    record's other fields. `kind` scopes a series to one document kind and, on invoices,
+    `invoiceType` scopes it further, so tax invoices and credit notes are separate records to
+    patch. wflow validates each item as a whole record, so a field you omit is reset to its default
+    rather than kept — send the whole record, not just what changed. What a patch does leave alone
+    is the series you keep out of the payload: they are not retired, and that is the one difference
+    from `update_register_series`. Sending a field as `null` is no different from omitting it: the
+    `null` is dropped before the request leaves, and wflow ignores an explicit null in any case. To
+    retire a single record, send it with `isValid: false` — and carry that field in every later
+    payload for it, because `isValid` defaults to true and a write that omits it revives the
+    record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/series"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/series",
+        json=write_body(series),
+    )
+    return WriteResult(action="patched", resource="registers/series")
+
+
+@operation
+async def patch_register_vat_control_statement_lines(
+    client: WflowClient, organization: OrgSlug, lines: list[Register]
+) -> WriteResult:
+    """Add or update VAT control statement line records, sparing the rest — the sections a document is itemised in.
+
+    The control statement reports transactions one by one, which is why its sections are a register
+    of their own alongside `patch_register_vat_return_lines`. Send `id` or `externalId` to identify
+    a section, or `code` when neither is given, plus the record's other fields. wflow validates
+    each item as a whole record, so a field you omit is reset to its default rather than kept —
+    send the whole record, not just what changed. What a patch does leave alone is the sections you
+    keep out of the payload: they are not retired, and that is the one difference from
+    `update_register_vat_control_statement_lines`. Sending a field as `null` is no different from
+    omitting it: the `null` is dropped before the request leaves, and wflow ignores an explicit
+    null in any case. To retire a single record, send it with `isValid: false` — and carry that
+    field in every later payload for it, because `isValid` defaults to true and a write that omits
+    it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/vatcontrolstatementlines"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/vatcontrolstatementlines",
+        json=write_body(lines),
+    )
+    return WriteResult(action="patched", resource="registers/vatcontrolstatementlines")
+
+
+@operation
+async def patch_register_vat_return_lines(
+    client: WflowClient, organization: OrgSlug, lines: list[VATReturnLine]
+) -> WriteResult:
+    """Add or update VAT return line records, sparing the rest — the rows a document's tax is reported on.
+
+    Send `id` or `externalId` to identify the line, or `code` when neither is given, plus the
+    record's other fields; `reverseCharge` marks the lines that report tax the recipient accounts
+    for, and sending it `false` is a change, not a clearing. wflow validates each item as a whole
+    record, so a field you omit is reset to its default rather than kept — send the whole record,
+    not just what changed. What a patch does leave alone is the lines you keep out of the payload:
+    they are not retired, and that is the one difference from `update_register_vat_return_lines`.
+    Sending a field as `null` is no different from omitting it: the `null` is dropped before the
+    request leaves, and wflow ignores an explicit null in any case. To retire a single record, send
+    it with `isValid: false` — and carry that field in every later payload for it, because
+    `isValid` defaults to true and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/vatreturnlines"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/vatreturnlines",
+        json=write_body(lines),
+    )
+    return WriteResult(action="patched", resource="registers/vatreturnlines")
+
+
+@operation
+async def patch_register_vat_reverse_charge_codes(
+    client: WflowClient, organization: OrgSlug, codes: list[Register]
+) -> WriteResult:
+    """Add or update VAT reverse charge code records, sparing the rest — the codes naming a reverse charge supply.
+
+    Send `id` or `externalId` to identify the record, or `code` — the supply code the law requires
+    on a reverse charge document — when neither is given, plus the record's other fields; restating
+    the supply changes `description`, sent with the rest. wflow validates each item as a whole record, so a field
+    you omit is reset to its default rather than kept — send the whole record, not just what
+    changed. What a patch does leave alone is the codes you keep out of the payload: they are not
+    retired, and that is the one difference from `update_register_vat_reverse_charge_codes`.
+    Sending a field as `null` is no different from omitting it: the `null` is dropped before the
+    request leaves, and wflow ignores an explicit null in any case. To retire a single record, send
+    it with `isValid: false` — and carry that field in every later payload for it, because
+    `isValid` defaults to true and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/vatreversechargecodes"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/vatreversechargecodes",
+        json=write_body(codes),
+    )
+    return WriteResult(action="patched", resource="registers/vatreversechargecodes")
+
+
+@operation
+async def patch_register_vehicles(client: WflowClient, organization: OrgSlug, vehicles: list[Register]) -> WriteResult:
+    """Add or update vehicle records, sparing the rest — the cars and machines travel and fuel documents name.
+
+    Send `id` or `externalId` to identify the vehicle, or `code` — typically the registration —
+    when neither is given, plus the record's other fields. wflow validates each item as a whole
+    record, so a field you omit is reset to its default rather than kept — send the whole record,
+    not just what changed. What a patch does leave alone is the vehicles you keep out of the
+    payload: they are not retired, and that is the one difference from `update_register_vehicles`.
+    Sending a field as `null` is no different from omitting it: the `null` is dropped before the
+    request leaves, and wflow ignores an explicit null in any case. To retire a single record, send
+    it with `isValid: false` — and carry that field in every later payload for it, because
+    `isValid` defaults to true and a write that omits it revives the record.
+
+    Fields: on the result —
+
+    - `action` — "patched"
+    - `resource` — "registers/vehicles"
+    """
+    await client.request(
+        "PATCH",
+        f"/api/{organization}/registers/vehicles",
+        json=write_body(vehicles),
+    )
+    return WriteResult(action="patched", resource="registers/vehicles")

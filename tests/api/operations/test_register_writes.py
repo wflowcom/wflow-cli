@@ -203,7 +203,7 @@ async def test_each_update_puts_to_its_own_path(name, segment, argument):
 
 
 WRITES = sorted(name for name in vars(registers) if name.startswith(("update_register_", "patch_register_")))
-EXPECTED_WRITES = 24
+EXPECTED_WRITES = 48
 
 
 def test_the_register_write_count():
@@ -259,3 +259,46 @@ def test_every_write_says_what_happens_to_the_records_you_leave_out(name):
         assert anchor in description, (
             f"{name} never says {anchor!r}; every {prefix}* docstring carries all of {anchors}"
         )
+
+
+async def test_a_patch_uses_the_patch_verb():
+    client, requests = mock_wflow({"/api/acme/registers/partners": None})
+
+    result = await registers.patch_register_partners(client, "acme", [PARTNER])
+
+    assert requests[0].method == "PATCH"
+    assert json.loads(requests[0].content) == [PARTNER]
+    assert result.action == "patched"
+
+
+async def test_an_empty_payload_is_refused_on_a_patch_too():
+    client, requests = mock_wflow({"/api/acme/registers/partners": None})
+
+    with pytest.raises(WflowError, match="patch_register_"):
+        await registers.patch_register_partners(client, "acme", [])
+
+    assert requests == []
+
+
+PATCH_OPERATIONS = [
+    (name.replace("update_", "patch_"), segment, argument) for name, segment, argument in UPDATE_OPERATIONS
+]
+
+
+@pytest.mark.parametrize("name,segment,argument", PATCH_OPERATIONS)
+async def test_each_patch_patches_its_own_path(name, segment, argument):
+    client, requests = mock_wflow({f"/api/acme/registers/{segment}": None})
+
+    result = await getattr(registers, name)(client, "acme", **{argument: [{"id": "x-1", "externalId": "X-1"}]})
+
+    assert requests[0].method == "PATCH"
+    assert requests[0].url.path == f"/api/acme/registers/{segment}"
+    assert result.action == "patched"
+
+
+@pytest.mark.parametrize("name", [name for name in WRITES if name.startswith("patch_register_")])
+def test_a_patch_writes_the_same_segment_as_its_update(name):
+    twin = name.replace("patch_", "update_", 1)
+    assert written_segment(name) == written_segment(twin), (
+        f"{name} writes registers/{written_segment(name)} but {twin} writes registers/{written_segment(twin)}"
+    )
