@@ -5,6 +5,9 @@ description = "Command-line client for the wflow.com public API"
 requires-python = ">=3.12"
 dependencies = ["wflow-api==0.1.0", "typer~=0.27.3"]
 
+[project.scripts]
+wflow = "wflow_cli.main:app"
+
 [tool.uv.sources]
 wflow-api = { workspace = true }
 
