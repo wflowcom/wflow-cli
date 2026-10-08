@@ -1,3 +1,6 @@
+import ast
+import inspect
+import textwrap
 from collections.abc import Callable
 
 import httpx
@@ -90,3 +93,10 @@ def mock_download(
         return httpx.Response(200, content=content if declare_length else _chunks(content), headers=headers)
 
     return client_for(handler), requests
+
+
+def body_source(fn: Callable[..., object]) -> str:
+    """An operation's body as source, its docstring dropped."""
+    func = ast.parse(textwrap.dedent(inspect.getsource(inspect.unwrap(fn)))).body[0]
+    body = func.body[1:] if ast.get_docstring(func) else func.body
+    return "\n".join(ast.unparse(statement) for statement in body)
