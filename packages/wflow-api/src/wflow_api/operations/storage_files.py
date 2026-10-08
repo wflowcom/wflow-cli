@@ -18,6 +18,7 @@ from wflow_api.models import (
     TeamBase,
     WriteResult,
 )
+from wflow_api.models.common import FileContent
 from wflow_api.models.documents import Property, PropertyDefinition
 from wflow_api.operation import operation
 
@@ -69,6 +70,29 @@ async def get_storage_file(client: WflowClient, organization: OrgSlug, fileId: s
     """
     payload = await client.request("GET", f"/api/{organization}/storage/files/{path_segment(fileId)}") or {}
     return StorageFile.model_validate(payload)
+
+
+@operation
+async def download_storage_file(
+    client: WflowClient, organization: OrgSlug, fileId: str, *, max_bytes: int | None = None
+) -> FileContent:
+    """Download one archived file's content, by its storage file id.
+
+    Get the id from `list_storage_files`. For a file attached to an approval document,
+    use `download_document_file` instead.
+
+    Fields:
+
+    - `filename` — as wflow reports it, or null when it sends no name
+    - `content_type` — MIME type, e.g. "application/pdf"
+    - `content` — the file's bytes, exactly as wflow stores them
+
+    `max_bytes`, when given, refuses a larger file before it is read in full; without it
+    any size comes through.
+    """
+    return await client.download(
+        f"/api/{organization}/storage/files/{path_segment(fileId)}/download", max_bytes=max_bytes
+    )
 
 
 @operation
@@ -412,3 +436,41 @@ async def update_storage_file_property_definition(
         or {}
     )
     return WriteResult(action="updated", resource="storage/files/properties/definition", id=stored.get("id"))
+
+
+@operation
+async def upload_storage_file(
+    client: WflowClient,
+    organization: OrgSlug,
+    filename: str,
+    content: bytes,
+    folderId: Annotated[str | None, Field(default=None, description="Folder to file it in; omit for the root")] = None,
+    overrideIfExists: Annotated[
+        bool | None, Field(default=None, description="Overwrite a file of the same name; defaults to false")
+    ] = None,
+) -> WriteResult:
+    """Upload a file's bytes into the archive, under the `filename` wflow should store it as.
+
+    `folderId` picks the folder, which `list_storage_folder_children` walks. **Pass one.**
+    Omitting it does not file at the root: wflow refuses the upload, so name a folder.
+    When the folder already holds a file of that name, the default keeps both by storing
+    this one as a numbered copy — under a name you did not choose, so take the file's id
+    off the result rather than looking for it by name afterwards.
+    `overrideIfExists` true overwrites that file's content instead, and nothing here can
+    bring back what it held.
+
+    Fields: on the result —
+
+    - `action` — "created"
+    - `resource` — "storage/files"
+    - `id` — the stored file's id, which `get_storage_file` and the property and rights
+      operations all take
+    """
+    created = await client.upload(
+        "PUT",
+        f"/api/{organization}/storage/files/upload",
+        filename,
+        content,
+        params=query_params(folderId=folderId, overrideIfExists=overrideIfExists),
+    )
+    return WriteResult(action="created", resource="storage/files", id=created)

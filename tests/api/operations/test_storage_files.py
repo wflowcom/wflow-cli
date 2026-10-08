@@ -2,9 +2,10 @@ import json
 
 import pytest
 
-from tests.helpers import mock_wflow
+from tests.helpers import mock_download, mock_wflow
 from wflow_api.errors import WflowApiError, WflowError
 from wflow_api.models import Paged
+from wflow_api.models.common import FileContent
 from wflow_api.models.storage import StorageFile
 from wflow_api.operations import storage_files
 
@@ -307,3 +308,72 @@ async def test_a_move_to_a_folder_wflow_does_not_know_reports_the_status():
         await storage_files.move_storage_file(client, "acme", "sf-1", "fo-missing")
 
     assert (failed.value.method, failed.value.path) == ("PUT", "/api/acme/storage/files/sf-1/move")
+
+
+async def test_a_storage_download_is_the_files_bytes():
+    client, requests = mock_download(b"%PDF-1.7 stored", filename="contract.pdf")
+
+    file = await storage_files.download_storage_file(client, "acme", "sf-1")
+
+    assert requests[0].method == "GET"
+    assert requests[0].url.path == "/api/acme/storage/files/sf-1/download"
+    assert file == FileContent(filename="contract.pdf", content_type="application/pdf", content=b"%PDF-1.7 stored")
+
+
+async def test_a_storage_download_over_its_limit_is_refused():
+    client, _ = mock_download(b"x" * 33)
+
+    with pytest.raises(WflowError, match="32-byte limit"):
+        await storage_files.download_storage_file(client, "acme", "sf-1", max_bytes=32)
+
+
+async def test_a_download_id_of_dots_never_reaches_the_wire():
+    client, requests = mock_download(b"x")
+
+    with pytest.raises(WflowError, match="run of dots"):
+        await storage_files.download_storage_file(client, "acme", "..")
+
+    assert requests == []
+
+
+async def test_an_uploaded_storage_file_is_multipart_and_hands_back_its_id():
+    client, requests = mock_wflow({"/api/acme/storage/files/upload": "sf-9"})
+
+    result = await storage_files.upload_storage_file(
+        client, "acme", "scan.pdf", b"%PDF-1.7", folderId="fo-1", overrideIfExists=False
+    )
+
+    sent = requests[0]
+    assert sent.method == "PUT"
+    assert sent.headers["content-type"].startswith("multipart/form-data")
+    assert b'name="file"; filename="scan.pdf"' in sent.content
+    assert b"%PDF-1.7" in sent.content
+    assert sent.url.params["folderId"] == "fo-1"
+    assert sent.url.params["overrideIfExists"] == "false"
+    assert (result.action, result.resource, result.id) == ("created", "storage/files", "sf-9")
+
+
+async def test_an_upload_wflow_answers_without_a_body_leaves_the_id_unset():
+    client, _ = mock_wflow({"/api/acme/storage/files/upload": None})
+
+    result = await storage_files.upload_storage_file(client, "acme", "scan.pdf", b"%PDF", folderId="fo-1")
+
+    assert result.id is None
+
+
+async def test_an_empty_file_is_uploaded_as_an_empty_part_rather_than_refused():
+    client, requests = mock_wflow({"/api/acme/storage/files/upload": "sf-0"})
+
+    result = await storage_files.upload_storage_file(client, "acme", "empty.txt", b"", folderId="fo-1")
+
+    assert b'filename="empty.txt"' in requests[0].content
+    assert "overrideIfExists" not in requests[0].url.params
+    assert result.id == "sf-0"
+
+
+def test_the_file_operations_describe_bytes_not_staging():
+    for operation in (storage_files.download_storage_file, storage_files.upload_storage_file):
+        doc = operation.__doc__ or ""
+        for word in ("uploadId", "downloadUrl", "zipPassword", "staged", "archive format", "tool"):
+            assert word not in doc, f"{operation.__name__} still says {word!r}"
+        assert "Fields:" in doc
