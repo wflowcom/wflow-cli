@@ -377,3 +377,12 @@ def test_the_file_operations_describe_bytes_not_staging():
         for word in ("uploadId", "downloadUrl", "zipPassword", "staged", "archive format", "tool"):
             assert word not in doc, f"{operation.__name__} still says {word!r}"
         assert "Fields:" in doc
+
+
+async def test_a_storage_upload_given_text_instead_of_bytes_sends_nothing():
+    client, requests = mock_wflow({"/api/acme/storage/files/upload": "sf-9"})
+
+    with pytest.raises(WflowError, match=r"^upload_storage_file: invalid arguments\. content: "):
+        await storage_files.upload_storage_file(client, "acme", "scan.pdf", "scan.pdf", folderId="fo-1")
+
+    assert requests == []

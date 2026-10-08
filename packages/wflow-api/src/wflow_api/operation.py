@@ -3,14 +3,19 @@
 import functools
 import inspect
 from collections.abc import Awaitable, Callable
+from typing import Annotated, Any
 
-from pydantic import ConfigDict, ValidationError, validate_call
+from pydantic import ConfigDict, Strict, ValidationError, validate_call
 
 from wflow_api.errors import WflowError
 
 
 def _problems(error: ValidationError) -> str:
     return "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" if e["loc"] else e["msg"] for e in error.errors())
+
+
+def _strict_bytes(annotation: Any) -> Any:
+    return Annotated[bytes, Strict()] if annotation is bytes else annotation
 
 
 def operation[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
@@ -21,7 +26,12 @@ def operation[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]
 
     @functools.cache
     def validator() -> tuple[inspect.Signature, Callable[..., Awaitable[R]]]:
-        return inspect.signature(fn), validate_call(config=ConfigDict(arbitrary_types_allowed=True))(start)
+        signature = inspect.signature(fn)
+        start.__signature__ = signature.replace(  # type: ignore[attr-defined]
+            parameters=[p.replace(annotation=_strict_bytes(p.annotation)) for p in signature.parameters.values()]
+        )
+        start.__annotations__ = {name: _strict_bytes(hint) for name, hint in fn.__annotations__.items()}
+        return signature, validate_call(config=ConfigDict(arbitrary_types_allowed=True))(start)
 
     @functools.wraps(fn)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

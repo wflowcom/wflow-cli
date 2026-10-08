@@ -118,3 +118,35 @@ async def test_the_validator_is_built_on_first_call_not_at_import(monkeypatch):
     await lazy(client)
     await lazy(client)
     assert len(built) == 1
+
+
+@operation
+async def attach(client: WflowClient, filename: str, content: bytes) -> int:
+    """An upload."""
+    await client.upload("PUT", "/api/acme/x", filename, content)
+    return len(content)
+
+
+@pytest.mark.parametrize("loose", ["héllo", bytearray(b"hello"), "/tmp/scan.pdf"])
+async def test_an_upload_takes_bytes_and_nothing_that_merely_converts_to_them(loose):
+    client, sent = mock_wflow({"/api/acme/x": None})
+
+    with pytest.raises(WflowError, match=r"^attach: invalid arguments\. content: ") as refused:
+        await attach(client, "scan.pdf", loose)
+
+    assert_one_clean_line(refused.value)
+    assert sent == []
+
+
+@pytest.mark.parametrize("content", [b"%PDF-1.7", b""])
+async def test_real_bytes_are_uploaded(content):
+    client, sent = mock_wflow({"/api/acme/x": None})
+
+    assert await attach(client, "scan.pdf", content) == len(content)
+    assert len(sent) == 1
+
+
+def test_the_strict_bytes_stay_private_to_the_validation():
+    assert inspect.signature(attach).parameters["content"].annotation is bytes
+    assert inspect.signature(inspect.unwrap(attach)).parameters["content"].annotation is bytes
+    assert inspect.unwrap(attach).__annotations__["content"] is bytes
