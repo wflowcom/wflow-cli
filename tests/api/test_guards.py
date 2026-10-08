@@ -1,8 +1,10 @@
 import httpx
 import pytest
 
+from tests.helpers import ACCOUNT_BODY, mock_response
 from wflow_api.errors import WflowError
 from wflow_api.guards import (
+    current_account,
     ensure_list,
     filename_from_disposition,
     path_segment,
@@ -107,3 +109,19 @@ def test_the_filename_is_read_the_way_the_rfcs_say():
     assert filename_from_disposition('attachment; filename="a;b.pdf"') == "a;b.pdf"
     assert filename_from_disposition("attachment; filename*=UTF-8''faktura-%C4%8D.pdf") == "faktura-č.pdf"
     assert filename_from_disposition("") is None
+
+
+async def test_the_current_account_is_typed():
+    client, sent = mock_response(200, json=ACCOUNT_BODY)
+
+    account = await current_account(client, "acme")
+
+    assert sent[0].url.path == "/api/acme/account"
+    assert account.identity.login == "lukas@wflow.com"
+
+
+async def test_a_workspace_without_the_caller_is_a_named_failure():
+    client, _ = mock_response(200, content=b"null")
+
+    with pytest.raises(WflowError, match="list_organizations"):
+        await current_account(client, "acme")
