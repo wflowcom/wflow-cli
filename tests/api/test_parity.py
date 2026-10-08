@@ -7,7 +7,7 @@ from tests.api.operations.test_register_writes import UPDATE_OPERATIONS
 from tests.helpers import body_source
 from wflow_api.operations import operations
 
-EXPECTED_OPERATIONS = 104
+EXPECTED_OPERATIONS = 127
 CALLS_THROUGH_A_HELPER = {
     "get_me": "reads through guards.current_account, which also refuses a null account",
 }
@@ -50,6 +50,7 @@ def path_text(node: ast.expr) -> str:
     text = "".join(
         part.value if isinstance(part, ast.Constant) else f"{{{ast.unparse(part.value)}}}" for part in node.values
     )
+    text = re.sub(r"\{str\((\w+)\)\.lower\(\)\}", r"{\1}", text)
     return re.sub(r"\{path_segment\((\w+)\)\}", r"{\1}", text)
 
 
