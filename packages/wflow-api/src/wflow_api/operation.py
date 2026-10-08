@@ -24,8 +24,11 @@ def operation[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]
         signature, validated = validator()
         try:
             pending = validated(**signature.bind(*args, **kwargs).arguments)
-        except (TypeError, ValidationError) as error:
+        except TypeError as error:
             raise WflowError(f"{fn.__name__}: invalid arguments. {error}") from None
+        except ValidationError as error:
+            problems = "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in error.errors())
+            raise WflowError(f"{fn.__name__}: invalid arguments. {problems}") from None
         return await pending
 
     return wrapper

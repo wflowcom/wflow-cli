@@ -12,6 +12,12 @@ from wflow_api.models import OrgSlug, PartnerFull
 from wflow_api.operation import operation
 
 
+def assert_one_clean_line(error: WflowError) -> None:
+    assert "\n" not in str(error)
+    assert "pydantic.dev" not in str(error)
+    assert "input_value" not in str(error)
+
+
 @operation
 async def sample(
     client: WflowClient,
@@ -29,6 +35,7 @@ def test_the_wrapper_is_still_a_coroutine_function_with_the_real_signature():
     assert list(inspect.signature(sample).parameters) == ["client", "organization", "partners", "page"]
     assert sample.__name__ == "sample" and sample.__doc__ == "A sample operation."
     assert inspect.unwrap(sample) is not sample
+    assert inspect.signature(sample) == inspect.signature(inspect.unwrap(sample))
 
 
 async def test_a_valid_call_runs_and_dicts_become_models():
@@ -46,27 +53,35 @@ async def test_an_organization_with_a_delimiter_never_reaches_the_wire(hostile):
         await sample(client, hostile, [])
 
     assert "organization" in str(refused.value)
+    assert_one_clean_line(refused.value)
     assert sent == []
 
 
 async def test_a_wrong_type_is_a_wflow_error_not_a_pydantic_one():
     client, _ = mock_wflow({})
 
-    with pytest.raises(WflowError, match="page"):
+    with pytest.raises(WflowError, match="page") as refused:
         await sample(client, "acme", [], page="first")
+
+    assert "first" not in str(refused.value)
+    assert_one_clean_line(refused.value)
 
 
 async def test_the_client_must_be_a_client():
-    with pytest.raises(WflowError, match="client"):
-        await sample("not a client", "acme", [])
+    with pytest.raises(WflowError, match="client") as refused:
+        await sample(42, "acme", [])
+
+    assert_one_clean_line(refused.value)
 
 
 async def test_a_call_that_does_not_bind_is_a_wflow_error():
     client, sent = mock_wflow({})
 
-    with pytest.raises(WflowError, match="sample"):
+    with pytest.raises(WflowError, match="sample") as refused:
         await sample(client, "acme", [], nonsense=1)
 
+    assert "nonsense" in str(refused.value)
+    assert_one_clean_line(refused.value)
     assert sent == []
 
 
