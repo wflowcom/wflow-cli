@@ -24,7 +24,7 @@ def _oauth_error(response: httpx.Response) -> str:
     if not isinstance(body, dict) or not body.get("error"):
         return ""
     described = f": {body['error_description']}" if body.get("error_description") else ""
-    return f" ({body['error']}{described})"
+    return f"{body['error']}{described}"
 
 
 class ClientCredentials:
@@ -57,20 +57,30 @@ class ClientCredentials:
             return self._token
 
     async def _fetch(self) -> tuple[str, float]:
-        async with httpx.AsyncClient(base_url=self._account_base, transport=self._transport, timeout=30) as client:
-            response = await client.post(TOKEN_PATH, data=self._form)
+        try:
+            async with httpx.AsyncClient(base_url=self._account_base, transport=self._transport, timeout=30) as client:
+                response = await client.post(TOKEN_PATH, data=self._form)
+        except httpx.HTTPError as error:
+            raise WflowError(
+                f"wflow {self._host} POST {TOKEN_PATH} could not be reached: {type(error).__name__}."
+            ) from error
         if response.is_error:
+            detail = _oauth_error(response)
+            described = f" ({detail})" if detail else ""
             raise WflowApiError(
-                f"wflow {self._host} POST {TOKEN_PATH} returned {response.status_code}{_oauth_error(response)}.",
+                f"wflow {self._host} POST {TOKEN_PATH} returned {response.status_code}{described}.",
                 status=response.status_code,
                 method="POST",
                 path=TOKEN_PATH,
-                detail=_oauth_error(response).strip(" ()"),
+                detail=detail,
             )
+        missing = f"wflow {self._host} POST {TOKEN_PATH} answered without an access_token."
         try:
             body = response.json()
-            token = str(body["access_token"])
+            token = body["access_token"]
             expires_in = float(body.get("expires_in") or 0)
         except (ValueError, KeyError, TypeError) as error:
-            raise WflowError(f"wflow {self._host} POST {TOKEN_PATH} answered without an access_token.") from error
+            raise WflowError(missing) from error
+        if not isinstance(token, str) or not token:
+            raise WflowError(missing)
         return token, time.monotonic() + max(expires_in - REFRESH_MARGIN_SECONDS, 0)
