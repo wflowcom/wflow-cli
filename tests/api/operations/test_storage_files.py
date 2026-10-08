@@ -245,6 +245,17 @@ async def test_the_property_definition_write_returns_the_stored_object():
     assert result.id == "pd-1"
 
 
+@pytest.mark.parametrize("answer", ["p", None])
+async def test_a_property_definition_write_answered_without_an_object_still_returns(answer):
+    client, _ = mock_wflow({"/api/acme/storage/files/properties/definition": answer})
+
+    result = await storage_files.update_storage_file_property_definition(
+        client, "acme", {"name": "Signed by", "type": "Text"}
+    )
+
+    assert (result.action, result.id) == ("updated", None)
+
+
 async def test_an_empty_rights_list_is_sent_rather_than_refused():
     client, requests = mock_wflow({"/api/acme/storage/files/sf-1/rights": None})
 

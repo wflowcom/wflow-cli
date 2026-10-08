@@ -427,15 +427,16 @@ async def update_storage_file_property_definition(
     - `id` — the definition's id when wflow echoes the stored definition, otherwise `null`;
       fall back to the `id` you sent
     """
-    stored = (
-        await client.request(
-            "PUT",
-            f"/api/{organization}/storage/files/properties/definition",
-            json=write_json(definition),
-        )
-        or {}
+    stored = await client.request(
+        "PUT",
+        f"/api/{organization}/storage/files/properties/definition",
+        json=write_json(definition),
     )
-    return WriteResult(action="updated", resource="storage/files/properties/definition", id=stored.get("id"))
+    return WriteResult(
+        action="updated",
+        resource="storage/files/properties/definition",
+        id=stored.get("id") if isinstance(stored, dict) else None,
+    )
 
 
 @operation

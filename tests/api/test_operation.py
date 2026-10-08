@@ -146,7 +146,10 @@ async def test_real_bytes_are_uploaded(content):
     assert len(sent) == 1
 
 
-def test_the_strict_bytes_stay_private_to_the_validation():
+async def test_the_strict_bytes_stay_private_to_the_validation():
+    client, _ = mock_wflow({"/api/acme/x": None})
+    await attach(client, "scan.pdf", b"x")
+
     assert inspect.signature(attach).parameters["content"].annotation is bytes
     assert inspect.signature(inspect.unwrap(attach)).parameters["content"].annotation is bytes
     assert inspect.unwrap(attach).__annotations__["content"] is bytes
