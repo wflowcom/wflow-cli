@@ -96,7 +96,7 @@ jq -n --arg v "$(claude --version | cut -d' ' -f1)" --arg ws "$WORKSPACE" --arg 
 claude auth login
 
 cd "$WORKSPACE"
-exec claude --dangerously-skip-permissions --add-dir "$MCP_WORKSPACE" "$@"
+exec claude --dangerously-skip-permissions --effort high --settings '{"tui":"default"}' --add-dir "$MCP_WORKSPACE" "$@"
 EOS
 
 RUN chmod +x /home/dev/aibox-start.sh
