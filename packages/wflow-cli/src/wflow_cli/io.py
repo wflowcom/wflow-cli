@@ -18,7 +18,7 @@ def read_json(text: str, option: str) -> Any:
     if text == STDIN:
         raw: bytes | str = sys.stdin.buffer.read()
     elif text.startswith("@"):
-        path = Path(text[1:])
+        path = Path(text[1:]).expanduser()
         try:
             raw = path.read_bytes()
         except OSError as error:
@@ -36,7 +36,8 @@ def read_json(text: str, option: str) -> Any:
 
 
 def print_json(value: Any) -> None:
-    typer.echo(to_json(value, indent=2).decode())
+    sys.stdout.buffer.write(to_json(value, indent=2) + b"\n")
+    sys.stdout.buffer.flush()
 
 
 def check_output(output: str, force: bool) -> None:

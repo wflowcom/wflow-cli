@@ -1,4 +1,5 @@
 import inspect
+import re
 
 import pytest
 import typer
@@ -7,7 +8,7 @@ from typer.testing import CliRunner
 from tests.helpers import mock_wflow
 from wflow_api import WflowApiError, WflowError
 from wflow_api.operations import operations
-from wflow_cli.commands import _command, build_app, command_name, explain, option_name
+from wflow_cli.commands import _command, _json_help, build_app, command_name, explain, option_name
 
 runner = CliRunner()
 
@@ -51,6 +52,27 @@ def test_a_download_takes_a_size_limit_and_says_where_the_bytes_go(command):
 
     assert shown.exit_code == 0, shown.output
     assert "--max-bytes" in shown.output and "sizeBytes" in shown.output
+
+
+def _help(command):
+    client, _ = mock_wflow({})
+    shown = runner.invoke(build_app(lambda: client), [command, "--help"])
+    assert shown.exit_code == 0, shown.output
+    return " ".join(re.sub(r"[│╭╮╰╯─]", " ", shown.output).split())
+
+
+def test_a_json_option_says_what_shape_it_takes():
+    partners = _help("update-register-partners")
+    export = _help("export-documents")
+
+    assert "A JSON list of objects with fields: id, externalId, ic, vat, name," in partners
+    assert "peppolIds. Inline JSON, @file.json, or - for stdin." in partners
+    assert "A JSON object with fields: search, sort, filters, propertyFilters, validationType." in export
+
+
+def test_a_json_option_keeps_its_description_first():
+    assert _json_help(list[str], "Tag names.") == "Tag names. A JSON list. Inline JSON, @file.json, or - for stdin."
+    assert _json_help(dict, None) == "A JSON value. Inline JSON, @file.json, or - for stdin."
 
 
 def test_a_negative_size_limit_is_a_usage_error():

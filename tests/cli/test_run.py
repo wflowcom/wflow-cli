@@ -1,5 +1,7 @@
 import json
 import subprocess
+import sys
+from pathlib import Path
 
 import httpx
 from typer.testing import CliRunner
@@ -58,6 +60,28 @@ def test_non_ascii_text_is_printed_as_is():
     ran = runner.invoke(app_on(client), ["list-register-partners", "-o", "acme"])
 
     assert "Účetní s.r.o." in ran.stdout
+
+
+BIG_PAGE = """
+from tests.helpers import mock_wflow
+from wflow_cli.commands import build_app
+items = [{"id": str(i), "name": "Účetní s.r.o."} for i in range(20000)]
+client, _ = mock_wflow({"/api/acme/registers/partners": {"items": items}})
+build_app(lambda: client)(["list-register-partners", "-o", "acme"])
+"""
+
+
+def test_a_reader_that_stops_early_gets_no_traceback():
+    piped = subprocess.Popen(
+        [sys.executable, "-c", BIG_PAGE], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=Path(__file__).parents[2]
+    )
+    assert piped.stdout is not None and piped.stderr is not None
+
+    assert piped.stdout.read(10) == b'{\n  "items'
+    piped.stdout.close()
+    piped.wait(timeout=60)
+
+    assert piped.stderr.read() == b""
 
 
 def test_the_organization_can_come_from_the_environment():

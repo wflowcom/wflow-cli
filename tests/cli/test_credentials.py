@@ -43,6 +43,7 @@ def test_the_token_comes_from_client_credentials_against_the_account_host():
 
 
 def test_the_cli_identifies_itself():
+    assert client_from_env(CREDENTIALS)._headers == HEADERS
     assert {
         "X-Client-Id": "wflowinternal",
         "X-Integration-Id": "wflow_cli",

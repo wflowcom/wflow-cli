@@ -9,6 +9,7 @@ from types import UnionType
 from typing import Annotated, Any, Union, cast, get_args, get_origin, get_type_hints
 
 import typer
+from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from wflow_api import FileContent, WflowApiError, WflowClient, WflowError
@@ -68,6 +69,18 @@ def _bare(annotation: Any) -> Any:
     return annotation
 
 
+def _json_help(bare: Any, description: str | None) -> str:
+    many = get_origin(bare) is list
+    item = get_args(bare)[0] if many and get_args(bare) else bare
+    if isinstance(item, type) and issubclass(item, BaseModel):
+        fields = ", ".join(info.alias or name for name, info in item.model_fields.items())
+        shape = f"A JSON {'list of objects' if many else 'object'} with fields: {fields}."
+    else:
+        shape = "A JSON list." if many else "A JSON value."
+    lead = f"{description.rstrip('.')}. " if description else ""
+    return f"{lead}{shape} Inline JSON, @file.json, or - for stdin."
+
+
 def _annotated(base: Any, option: Any) -> Any:
     return cast(Any, Annotated)[base, option]
 
@@ -107,9 +120,7 @@ def _options(fn: Operation) -> tuple[list[inspect.Parameter], dict[str, str]]:
             typed = bare | None if optional else bare
         else:
             kinds[name] = "json"
-            option = typer.Option(
-                option_name(name), help=f"{description or 'JSON value'}. Inline JSON, @file.json, or - for stdin."
-            )
+            option = typer.Option(option_name(name), help=_json_help(bare, description))
             typed = str | None if optional else str
         if uploads and name == "filename":
             option = typer.Option(

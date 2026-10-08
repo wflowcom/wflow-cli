@@ -62,6 +62,22 @@ def test_results_print_as_indented_json_with_text_as_is(capsys):
     assert "Účetní s.r.o." in out
 
 
+def test_results_are_utf8_whatever_the_terminal_encoding(monkeypatch):
+    terminal = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", terminal)
+
+    print_json({"name": "Účetní s.r.o."})
+
+    assert terminal.buffer.getvalue() == '{\n  "name": "Účetní s.r.o."\n}\n'.encode()
+
+
+def test_a_file_argument_may_start_at_the_home_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / "partners.json").write_text('[{"name": "Acme"}]', encoding="utf-8")
+
+    assert read_json("@~/partners.json", "--partners") == [{"name": "Acme"}]
+
+
 def test_an_output_path_is_checked_before_anything_is_fetched(tmp_path):
     existing = tmp_path / "a.pdf"
     existing.write_bytes(b"old")
