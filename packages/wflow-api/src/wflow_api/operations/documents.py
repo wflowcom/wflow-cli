@@ -17,9 +17,11 @@ from wflow_api.models import (
     Query,
     Search,
     Sort,
+    StructuredFilter,
     TeamBase,
     WriteResult,
 )
+from wflow_api.models.common import FileContent
 from wflow_api.models.documents import (
     Comment,
     Document,
@@ -526,3 +528,76 @@ async def set_document_rights(
         json=write_json_list(teams, allow_empty=True),
     )
     return WriteResult(action="updated", resource="documents/rights")
+
+
+@operation
+async def create_document_with_files(
+    client: WflowClient,
+    organization: OrgSlug,
+    filename: str,
+    content: bytes,
+    typeId: Annotated[str | None, Field(default=None, description="Document type to file it under")] = None,
+    invoiceType: Annotated[
+        str | None,
+        Field(default=None, description="TaxInvoice, CreditNote, DebitNote, Proforma or TaxInvoicePayment"),
+    ] = None,
+) -> WriteResult:
+    """Create a document from a file: its bytes, and the `filename` wflow should store it under.
+
+    This is how a scan becomes a document: wflow files it under `typeId`, which
+    `list_document_types` names, and reads what it can out of the file itself — an ISDOC,
+    or the QR receipt on a Slovak one — into the new document's fields. It sends one file
+    per call and hands back no document id, so to attach anything further, find the new
+    document with `list_documents` — `sort` of "created desc" puts it first — and pass its
+    id to `upload_document_file`. A refusal for lack of access to the document type means
+    the caller is not in that type's `users`, which `get_document_type` lists.
+
+    Fields: on the result —
+
+    - `action` — "created"
+    - `resource` — "documents/withfiles"
+    """
+    await client.upload(
+        "POST",
+        f"/api/{organization}/documents/withfiles",
+        filename,
+        content,
+        params=query_params(typeId=typeId, invoiceType=invoiceType),
+        field="uploadedFiles",
+    )
+    return WriteResult(action="created", resource="documents/withfiles")
+
+
+@operation
+async def export_documents(
+    client: WflowClient,
+    organization: OrgSlug,
+    format: str,
+    filter: StructuredFilter,
+    *,
+    max_bytes: int | None = None,
+) -> FileContent:
+    """Export a set of documents as one file, in an accounting system's own format.
+
+    `format` is one of "byznyssolitea", "datev", "excel", "generic", "isdoc", "kros",
+    "moneyerp", "moneys3", "mrp", "premier" or "xml"; another value is rejected outright.
+    `filter` chooses which documents go in — `filters` per column, `propertyFilters` per
+    custom property, `search` as free text — and **`sort` is required**: pass something
+    like "number asc", because wflow fails the export without it, an empty `filter`
+    object included. The other three are optional and default to no restriction.
+
+    wflow streams the export file itself, whatever the format, and it comes back as its own
+    bytes. With `max_bytes` set, a larger export is refused rather than truncated.
+
+    Fields:
+
+    - `filename` — whatever wflow's Content-Disposition names, when it sends one
+    - `content_type` — the MIME type wflow gave the export
+    - `content` — the export's bytes
+    """
+    return await client.download(
+        f"/api/{organization}/documents/export/{path_segment(format)}",
+        "POST",
+        json=write_json(filter.with_empty_restrictions()),
+        max_bytes=max_bytes,
+    )
