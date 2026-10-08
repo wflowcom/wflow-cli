@@ -1,7 +1,8 @@
 # wflow CLI
 
 The [wflow.com](https://www.wflow.com) public API from the command line. Every API operation is one
-command, every command prints JSON, and `wflow <command> --help` documents what it sends and returns.
+command, every command prints JSON (except a download to `--output -`, which writes the file's raw bytes to
+stdout), and `wflow <command> --help` documents what it sends and returns.
 
 ## Install
 
@@ -76,14 +77,15 @@ existing file unless you pass `--force`.
 
 | Code | Meaning |
 |---|---|
-| `0` | success; the result is on stdout as JSON |
+| `0` | success; the result is on stdout as JSON, or the file's raw bytes for a download with `--output -` |
 | `1` | wflow refused or failed the call, or the input was refused before anything was sent; one line on stderr says why |
 | `2` | the command line or the environment is wrong; stderr has a usage message or says what to set |
 
 ## For AI agents
 
 Every command prints its result as JSON on stdout and the reason for a failure on stderr, so an agent can run
-`wflow` from a shell, check the exit code and parse the result. `wflow <command> --help` is the documentation for
+`wflow` from a shell, check the exit code and parse the result. The one exception is a download with `--output -`,
+which writes the file's raw bytes to stdout instead. `wflow <command> --help` is the documentation for
 that command.
 
 ## Python

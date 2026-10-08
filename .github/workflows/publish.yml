@@ -23,6 +23,8 @@ jobs:
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.10.6"
 
       - name: The tag matches both package versions
         if: github.ref_type == 'tag'
@@ -49,7 +51,7 @@ jobs:
       - name: The wheels install into a clean environment and run
         run: |
           uv venv "$RUNNER_TEMP/smoke"
-          uv pip install --python "$RUNNER_TEMP/smoke" dist/*.whl
+          uv pip install --python "$RUNNER_TEMP/smoke" --find-links dist wflow-cli
           "$RUNNER_TEMP/smoke/bin/wflow" --version
 
       - uses: actions/upload-artifact@v7
@@ -71,6 +73,8 @@ jobs:
           path: dist/
 
       - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.10.6"
 
       - name: Publish to TestPyPI
         if: github.event_name == 'workflow_dispatch'

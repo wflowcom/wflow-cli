@@ -60,6 +60,7 @@ ai_box: ai_box_build
 
 release:
 	@test -n "$(VERSION)" || { echo "VERSION is required, e.g. make release VERSION=0.1.1"; exit 1; }
+	@case "$(VERSION)" in v*) echo "VERSION is the bare version, like 0.2.0 — no leading v"; exit 1;; esac
 	uv version --package wflow-api --frozen $(VERSION)
 	uv version --package wflow-cli --frozen $(VERSION)
 	sed -i.bak -E 's/"wflow-api==[^"]+"/"wflow-api==$(VERSION)"/' packages/wflow-cli/pyproject.toml
