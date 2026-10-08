@@ -1,0 +1,28 @@
+# No image and no integration suite in this repo, so those jobs are skipped.
+
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [master, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    uses: wflowcom/ai-gh-actions/.github/workflows/pr-validation.yml@pr-validation/v1
+    with:
+      python-version: ${{ matrix.python-version }}
+      skip-docker-build: true
+      skip-integration-tests: true
