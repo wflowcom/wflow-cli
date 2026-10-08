@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from tests.helpers import API_BASE, HEADERS, client_for, mock_download, mock_response
+from tests.helpers import API_BASE, HEADERS, client_for, fake_token, mock_download, mock_response
 from wflow_api.client import WflowClient
 from wflow_api.errors import WflowApiError, WflowError
 from wflow_api.models.common import FileContent
@@ -197,8 +197,36 @@ def _unreachable(request: httpx.Request) -> httpx.Response:
 async def test_an_unreachable_host_on_a_request_is_a_wflow_error():
     client = client_for(_unreachable)
 
-    with pytest.raises(WflowError, match=r"wflow apitest\.wflow\.com GET /api/acme/documents failed: ConnectError\."):
+    with pytest.raises(
+        WflowError,
+        match=r"^wflow apitest\.wflow\.com GET /api/acme/documents failed: ConnectError: connection refused\.$",
+    ):
         await client.request("GET", "/api/acme/documents")
+
+
+async def test_a_transport_failure_without_a_message_names_only_its_type():
+    def silent(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("", request=request)
+
+    with pytest.raises(WflowError, match=r"^wflow apitest\.wflow\.com GET /f failed: ConnectError\.$"):
+        await client_for(silent).request("GET", "/f")
+
+
+@pytest.mark.parametrize("call", [lambda client: client.request("GET", "/f"), lambda client: client.download("/f")])
+async def test_a_malformed_api_base_is_a_wflow_error(call):
+    client = WflowClient(fake_token, api_base="https://api.wflow.com:abc", headers=HEADERS)
+
+    with pytest.raises(WflowError, match=r"GET /f failed: InvalidURL: Invalid port: 'abc'\.$"):
+        await call(client)
+
+
+async def test_a_redirect_is_an_api_error_not_a_silent_success():
+    client, _ = mock_response(301, content=b"", headers={"location": "https://elsewhere.example/x"})
+
+    with pytest.raises(WflowApiError) as failed:
+        await client.request("POST", "/api/acme/documents")
+
+    assert (failed.value.status, failed.value.method, failed.value.path) == (301, "POST", "/api/acme/documents")
 
 
 async def test_an_unreachable_host_on_an_upload_is_a_wflow_error():

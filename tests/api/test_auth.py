@@ -106,8 +106,17 @@ async def test_an_unreachable_token_endpoint_raises_a_wflow_error_without_the_se
     with pytest.raises(WflowError) as unreachable:
         await ClientCredentials("c", "s3cret-value", ACCOUNT, transport=httpx.MockTransport(handler))()
 
-    assert str(unreachable.value) == "wflow account.wflow.com POST /connect/token could not be reached: ConnectError."
+    assert (
+        str(unreachable.value)
+        == "wflow account.wflow.com POST /connect/token could not be reached: ConnectError: connection refused."
+    )
+    assert "s3cret" not in str(unreachable.value)
     assert isinstance(unreachable.value.__cause__, httpx.ConnectError)
+
+
+async def test_a_malformed_account_base_raises_a_wflow_error():
+    with pytest.raises(WflowError, match=r"could not be reached: InvalidURL: Invalid port: 'abc'\.$"):
+        await ClientCredentials("c", "s3cret-value", "https://account.wflow.com:abc")()
 
 
 @pytest.mark.parametrize("token", [None, "", 42])

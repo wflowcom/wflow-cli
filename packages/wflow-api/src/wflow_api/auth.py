@@ -60,10 +60,9 @@ class ClientCredentials:
         try:
             async with httpx.AsyncClient(base_url=self._account_base, transport=self._transport, timeout=30) as client:
                 response = await client.post(TOKEN_PATH, data=self._form)
-        except httpx.HTTPError as error:
-            raise WflowError(
-                f"wflow {self._host} POST {TOKEN_PATH} could not be reached: {type(error).__name__}."
-            ) from error
+        except (httpx.HTTPError, httpx.InvalidURL) as error:
+            reason = f"{type(error).__name__}{f': {error}' if str(error) else ''}"
+            raise WflowError(f"wflow {self._host} POST {TOKEN_PATH} could not be reached: {reason}.") from error
         if response.is_error:
             detail = _oauth_error(response)
             described = f" ({detail})" if detail else ""

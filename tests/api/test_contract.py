@@ -18,11 +18,8 @@ def test_the_public_surface():
 
 def test_the_library_never_reads_the_environment():
     root = Path(wflow_api.__file__).parent
-    offenders = [
-        str(path.relative_to(root))
-        for path in root.rglob("*.py")
-        if "os.environ" in path.read_text() or "getenv" in path.read_text()
-    ]
+    sources = {str(path.relative_to(root)): path.read_text() for path in root.rglob("*.py")}
+    offenders = [name for name, source in sources.items() if "environ" in source or "getenv" in source]
 
     assert offenders == []
 

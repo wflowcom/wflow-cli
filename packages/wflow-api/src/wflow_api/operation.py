@@ -9,6 +9,10 @@ from pydantic import ConfigDict, ValidationError, validate_call
 from wflow_api.errors import WflowError
 
 
+def _problems(error: ValidationError) -> str:
+    return "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" if e["loc"] else e["msg"] for e in error.errors())
+
+
 def operation[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
     def start(*args: P.args, **kwargs: P.kwargs) -> Awaitable[R]:
         return fn(*args, **kwargs)
@@ -27,8 +31,10 @@ def operation[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]
         except TypeError as error:
             raise WflowError(f"{fn.__name__}: invalid arguments. {error}") from None
         except ValidationError as error:
-            problems = "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in error.errors())
-            raise WflowError(f"{fn.__name__}: invalid arguments. {problems}") from None
-        return await pending
+            raise WflowError(f"{fn.__name__}: invalid arguments. {_problems(error)}") from None
+        try:
+            return await pending
+        except ValidationError as error:
+            raise WflowError(f"{fn.__name__}: wflow answered in an unexpected shape. {_problems(error)}") from error
 
     return wrapper

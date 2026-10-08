@@ -49,17 +49,19 @@ class WflowClient:
             detail=detail.strip(),
         )
 
-    def _transport_failure(self, error: httpx.HTTPError, method: str, path: str) -> WflowError:
-        return WflowError(f"wflow {self._host} {method} {path} failed: {type(error).__name__}.")
+    def _transport_failure(self, error: httpx.HTTPError | httpx.InvalidURL, method: str, path: str) -> WflowError:
+        return WflowError(
+            f"wflow {self._host} {method} {path} failed: {type(error).__name__}{f': {error}' if str(error) else ''}."
+        )
 
     async def request(self, method: str, path: str, *, timeout: float | None = None, **kwargs: Any) -> Any:
         headers = {**await self._signed(), "Accept": "application/json"}
         try:
             async with self._http(self._timeout if timeout is None else timeout) as http:
                 response = await http.request(method, path, headers=headers, **kwargs)
-        except httpx.HTTPError as error:
+        except (httpx.HTTPError, httpx.InvalidURL) as error:
             raise self._transport_failure(error, method, path) from error
-        if response.is_error:
+        if not response.is_success:
             raise self._failure(response, method, path)
         if not response.content:
             return None
@@ -124,5 +126,5 @@ class WflowClient:
                     content_type=response.headers.get("content-type"),
                     content=b"".join(chunks),
                 )
-        except httpx.HTTPError as error:
+        except (httpx.HTTPError, httpx.InvalidURL) as error:
             raise self._transport_failure(error, method, path) from error

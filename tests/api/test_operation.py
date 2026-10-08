@@ -64,7 +64,24 @@ async def test_a_wrong_type_is_a_wflow_error_not_a_pydantic_one():
         await sample(client, "acme", [], page="first")
 
     assert "first" not in str(refused.value)
+    assert "invalid arguments" in str(refused.value)
     assert_one_clean_line(refused.value)
+
+
+@operation
+async def shaped(client: WflowClient) -> PartnerFull:
+    """A shaped operation."""
+    return PartnerFull.model_validate(await client.request("GET", "/api/acme/x"))
+
+
+async def test_a_badly_shaped_answer_is_a_wflow_error_not_a_pydantic_one():
+    client, _ = mock_wflow({"/api/acme/x": [{"name": "Acme"}]})
+
+    with pytest.raises(WflowError, match=r"^shaped: wflow answered in an unexpected shape\. \S") as malformed:
+        await shaped(client)
+
+    assert "invalid arguments" not in str(malformed.value)
+    assert_one_clean_line(malformed.value)
 
 
 async def test_the_client_must_be_a_client():
