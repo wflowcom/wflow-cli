@@ -1,5 +1,3 @@
-# AI-powered PR review using Claude Code.
-
 name: PR Review
 
 on:
