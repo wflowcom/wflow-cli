@@ -1,4 +1,4 @@
-"""The one place wflow is called over HTTP."""
+"""Calls to the wflow public API, signed with the caller's token."""
 
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
@@ -49,10 +49,16 @@ class WflowClient:
             detail=detail.strip(),
         )
 
+    def _transport_failure(self, error: httpx.HTTPError, method: str, path: str) -> WflowError:
+        return WflowError(f"wflow {self._host} {method} {path} failed: {type(error).__name__}.")
+
     async def request(self, method: str, path: str, *, timeout: float | None = None, **kwargs: Any) -> Any:
         headers = {**await self._signed(), "Accept": "application/json"}
-        async with self._http(timeout or self._timeout) as http:
-            response = await http.request(method, path, headers=headers, **kwargs)
+        try:
+            async with self._http(self._timeout if timeout is None else timeout) as http:
+                response = await http.request(method, path, headers=headers, **kwargs)
+        except httpx.HTTPError as error:
+            raise self._transport_failure(error, method, path) from error
         if response.is_error:
             raise self._failure(response, method, path)
         if not response.content:
@@ -81,37 +87,42 @@ class WflowClient:
         self, path: str, method: str = "GET", json: Any = None, max_bytes: int | None = None
     ) -> FileContent:
         headers = await self._signed()
-        async with (
-            self._http(DOWNLOAD_TIMEOUT) as http,
-            http.stream(method, path, headers=headers, json=json) as response,
-        ):
-            if response.is_error:
-                await response.aread()
-                raise self._failure(response, method, path)
-            if response.status_code != 200:
-                await response.aread()
-                if response.status_code == 204:
+        try:
+            async with (
+                self._http(DOWNLOAD_TIMEOUT) as http,
+                http.stream(method, path, headers=headers, json=json) as response,
+            ):
+                if response.is_error:
+                    await response.aread()
+                    raise self._failure(response, method, path)
+                if response.status_code != 200:
+                    await response.aread()
+                    if response.status_code == 204:
+                        raise WflowError(
+                            f"wflow {self._host} {method} {path} returned 204: wflow holds no content for that file."
+                        )
+                    raise WflowError(f"wflow {self._host} {method} {path} returned {response.status_code}, not 200.")
+                try:
+                    declared = int(response.headers.get("content-length") or 0)
+                except ValueError:
+                    raise WflowError(f"wflow {self._host} {method} {path} sent a non-numeric Content-Length.") from None
+                if max_bytes is not None and declared > max_bytes:
                     raise WflowError(
-                        f"wflow {self._host} {method} {path} returned 204: wflow holds no content for that file."
+                        f"The file at {path} is {declared} bytes, over the {max_bytes}-byte limit set for this download."
                     )
-                raise WflowError(f"wflow {self._host} {method} {path} returned {response.status_code}, not 200.")
-            try:
-                declared = int(response.headers.get("content-length") or 0)
-            except ValueError:
-                raise WflowError(f"wflow {self._host} {method} {path} sent a non-numeric Content-Length.") from None
-            if max_bytes is not None and declared > max_bytes:
-                raise WflowError(
-                    f"The file at {path} is {declared} bytes, over the {max_bytes}-byte limit set for this download."
+                chunks: list[bytes] = []
+                size = 0
+                async for chunk in response.aiter_bytes():
+                    size += len(chunk)
+                    if max_bytes is not None and size > max_bytes:
+                        raise WflowError(
+                            f"The file at {path} is over the {max_bytes}-byte limit set for this download."
+                        )
+                    chunks.append(chunk)
+                return FileContent(
+                    filename=filename_from_disposition(response.headers.get("content-disposition", "")),
+                    content_type=response.headers.get("content-type"),
+                    content=b"".join(chunks),
                 )
-            chunks: list[bytes] = []
-            size = 0
-            async for chunk in response.aiter_bytes():
-                size += len(chunk)
-                if max_bytes is not None and size > max_bytes:
-                    raise WflowError(f"The file at {path} is over the {max_bytes}-byte limit set for this download.")
-                chunks.append(chunk)
-            return FileContent(
-                filename=filename_from_disposition(response.headers.get("content-disposition", "")),
-                content_type=response.headers.get("content-type"),
-                content=b"".join(chunks),
-            )
+        except httpx.HTTPError as error:
+            raise self._transport_failure(error, method, path) from error

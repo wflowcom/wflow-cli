@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from tests.helpers import API_BASE, HEADERS, mock_download, mock_response
+from tests.helpers import API_BASE, HEADERS, client_for, mock_download, mock_response
 from wflow_api.client import WflowClient
 from wflow_api.errors import WflowApiError, WflowError
 from wflow_api.models.common import FileContent
@@ -164,7 +164,7 @@ async def test_a_non_numeric_content_length_does_not_crash():
 async def test_a_declared_size_over_the_limit_is_refused_before_reading():
     client, _ = mock_download(b"x" * 11)
 
-    with pytest.raises(WflowError, match="10-byte limit"):
+    with pytest.raises(WflowError, match="11 bytes, over the 10-byte limit"):
         await client.download("/f", max_bytes=10)
 
 
@@ -179,3 +179,48 @@ async def test_without_a_limit_any_size_comes_through():
     client, _ = mock_download(b"x" * (3 << 20), declare_length=False)
 
     assert len((await client.download("/f")).content) == 3 << 20
+
+
+async def test_a_rate_limit_is_an_api_error():
+    client, _ = mock_response(429, json={"title": "Too Many Requests"})
+
+    with pytest.raises(WflowApiError) as failed:
+        await client.request("GET", "/api/acme/documents")
+
+    assert failed.value.status == 429
+
+
+def _unreachable(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("connection refused", request=request)
+
+
+async def test_an_unreachable_host_on_a_request_is_a_wflow_error():
+    client = client_for(_unreachable)
+
+    with pytest.raises(WflowError, match=r"wflow apitest\.wflow\.com GET /api/acme/documents failed: ConnectError\."):
+        await client.request("GET", "/api/acme/documents")
+
+
+async def test_an_unreachable_host_on_an_upload_is_a_wflow_error():
+    client = client_for(_unreachable)
+
+    with pytest.raises(WflowError, match="POST /api/acme/documents/withfiles failed: ConnectError"):
+        await client.upload("POST", "/api/acme/documents/withfiles", "a.pdf", b"%PDF")
+
+
+async def test_an_unreachable_host_on_a_download_is_a_wflow_error():
+    client = client_for(_unreachable)
+
+    with pytest.raises(WflowError, match="GET /f failed: ConnectError"):
+        await client.download("/f")
+
+
+async def test_a_connection_dropped_mid_download_is_a_wflow_error():
+    async def dropping():
+        yield b"%PDF"
+        raise httpx.RemoteProtocolError("peer closed connection")
+
+    client = client_for(lambda request: httpx.Response(200, content=dropping()))
+
+    with pytest.raises(WflowError, match="GET /f failed: RemoteProtocolError"):
+        await client.download("/f")
