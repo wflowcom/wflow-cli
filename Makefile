@@ -1,10 +1,11 @@
-.PHONY: help install test lint lint_format ai_box ai_box_build
+.PHONY: help install test lint lint_format release ai_box ai_box_build
 
 help:
 	@echo "make install      - install both packages and the dev tools with uv"
 	@echo "make test         - run the tests with coverage"
 	@echo "make lint         - check formatting, lint and types"
 	@echo "make lint_format  - format and auto-fix"
+	@echo "make release VERSION=x.y.z - set both package versions and the pin, then relock"
 	@echo "make ai_box_build - build the disposable Claude dev box image"
 	@echo "make ai_box       - start the box; AIBOX_BRANCH / AIBOX_MCP_BRANCH pick the branches"
 
@@ -56,3 +57,11 @@ ai_box: ai_box_build
 		-v "$$stage:/host-claude:ro" \
 		-v "$(CURDIR)/docs:/home/dev/docs:rw" \
 		$(AIBOX_IMAGE)
+
+release:
+	@test -n "$(VERSION)" || { echo "VERSION is required, e.g. make release VERSION=0.1.1"; exit 1; }
+	uv version --package wflow-api --frozen $(VERSION)
+	uv version --package wflow-cli --frozen $(VERSION)
+	sed -i.bak -E 's/"wflow-api==[^"]+"/"wflow-api==$(VERSION)"/' packages/wflow-cli/pyproject.toml
+	rm packages/wflow-cli/pyproject.toml.bak
+	uv lock
