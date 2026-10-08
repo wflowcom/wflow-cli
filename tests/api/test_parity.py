@@ -7,7 +7,7 @@ from tests.api.operations.test_register_writes import UPDATE_OPERATIONS
 from tests.helpers import body_source
 from wflow_api.operations import operations
 
-EXPECTED_OPERATIONS = 80
+EXPECTED_OPERATIONS = 90
 CALLS_THROUGH_A_HELPER = {
     "get_me": "reads through guards.current_account, which also refuses a null account",
 }
