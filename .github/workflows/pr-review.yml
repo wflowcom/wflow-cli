@@ -1,10 +1,11 @@
+# Claude reviews each PR for critical issues; fork PRs get no secrets, so they are skipped.
+
 name: PR Review
 
 on:
   pull_request:
     branches: [master, develop]
     types: [opened, synchronize, reopened]
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -14,12 +15,27 @@ permissions:
   contents: read
   pull-requests: write
   id-token: write
-  actions: read
 
 jobs:
   review:
-    uses: wflowcom/ai-gh-actions/.github/workflows/pr-review.yml@pr-review/v1
-    with:
-      skip-meldoc-review: ${{ startsWith(github.head_ref, 'renovate/') }}
-    secrets:
-      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request for critical issues only: correctness bugs, security vulnerabilities and data loss.
+            Ignore style, naming, docs and suggestions. Read CLAUDE.md for the repository's rules.
+            Post exactly one comment with `gh pr comment`: each critical issue as `path:line — problem and its consequence`,
+            or the single line "No critical issues." when there are none.
+          claude_args: |
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
