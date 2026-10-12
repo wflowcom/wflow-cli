@@ -6,7 +6,7 @@ Regenerate with:
 
 then review the diff; hand-written descriptions live here and must not be lost.
 
-Every field is optional, and tools serialise with `model_dump(exclude_none=True)`: a whole-record
+Every field is optional, and operations serialise with `model_dump(exclude_none=True)`: a whole-record
 write that sent every unset optional as null would clear data the caller never mentioned.
 
 That command's dependency closure emits 32 classes, not the 23 below. The other 9 are schemas
