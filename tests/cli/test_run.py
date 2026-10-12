@@ -242,6 +242,37 @@ def test_a_download_never_overwrites_without_force(tmp_path):
     assert target.read_bytes() == b"keep me"
 
 
+def test_a_file_that_appears_during_a_download_is_kept(tmp_path):
+    target = tmp_path / "out.pdf"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        target.write_bytes(b"keep me")
+        return httpx.Response(200, content=b"new", headers={"content-type": "application/pdf"})
+
+    ran = runner.invoke(
+        app_on(client_for(handler)),
+        ["download-document-file", "-o", "acme", "--file-id", "f-1", "--output", str(target)],
+    )
+
+    assert ran.exit_code == 2
+    assert "--force" in ran.output
+    assert target.read_bytes() == b"keep me"
+
+
+def test_force_overwrites_an_existing_download_target(tmp_path):
+    target = tmp_path / "out.pdf"
+    target.write_bytes(b"old")
+    client, _ = mock_download(b"new")
+
+    ran = runner.invoke(
+        app_on(client),
+        ["download-document-file", "-o", "acme", "--file-id", "f-1", "--output", str(target), "--force"],
+    )
+
+    assert ran.exit_code == 0, ran.output
+    assert target.read_bytes() == b"new"
+
+
 def test_a_403_says_where_to_allow_the_client():
     client, _ = mock_wflow({}, status=403)
 

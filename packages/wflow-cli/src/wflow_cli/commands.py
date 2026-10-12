@@ -194,7 +194,7 @@ def _command(fn: Operation, kinds: dict[str, str], make_client: MakeClient) -> C
             typer.echo(_one_line(explain(error)), err=True)
             raise typer.Exit(1) from None
         if isinstance(result, FileContent):
-            save_download(result, output or STDIN)
+            save_download(result, output or STDIN, force)
         else:
             print_json(result)
 

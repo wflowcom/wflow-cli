@@ -118,7 +118,9 @@ def test_an_output_that_cannot_be_written_is_refused_up_front(tmp_path):
 def test_a_download_is_written_and_described(tmp_path, capsys):
     target = tmp_path / "faktura.pdf"
 
-    save_download(FileContent(filename="faktura.pdf", content_type="application/pdf", content=b"%PDF"), str(target))
+    save_download(
+        FileContent(filename="faktura.pdf", content_type="application/pdf", content=b"%PDF"), str(target), force=False
+    )
 
     assert target.read_bytes() == b"%PDF"
     assert json.loads(capsys.readouterr().out) == {
@@ -134,12 +136,49 @@ def test_a_download_that_cannot_be_written_is_a_usage_error(tmp_path):
     blocker.write_bytes(b"old")
 
     with pytest.raises(typer.BadParameter, match="cannot write") as refused:
-        save_download(FileContent(filename=None, content_type=None, content=b"%PDF"), str(blocker / "b.pdf"))
+        save_download(
+            FileContent(filename=None, content_type=None, content=b"%PDF"), str(blocker / "b.pdf"), force=False
+        )
 
     assert refused.value.param_hint == "--output"
 
 
 def test_a_download_to_stdout_is_the_raw_bytes(capsysbinary):
-    save_download(FileContent(filename=None, content_type=None, content=b"\x00\xffPDF"), "-")
+    save_download(FileContent(filename=None, content_type=None, content=b"\x00\xffPDF"), "-", force=False)
 
     assert capsysbinary.readouterr().out == b"\x00\xffPDF"
+
+
+def test_a_file_that_appears_during_the_download_is_not_overwritten(tmp_path, capsys):
+    target = tmp_path / "a.pdf"
+    check_output(str(target), force=False)
+    target.write_bytes(b"keep me")
+
+    with pytest.raises(typer.BadParameter, match="already exists") as refused:
+        save_download(FileContent(filename=None, content_type=None, content=b"%PDF"), str(target), force=False)
+
+    assert refused.value.param_hint == "--output"
+    assert target.read_bytes() == b"keep me"
+    assert capsys.readouterr().out == ""
+
+
+def test_a_symlink_that_appears_during_the_download_is_not_followed(tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_bytes(b"keep me")
+    link = tmp_path / "a.pdf"
+    check_output(str(link), force=False)
+    link.symlink_to(victim)
+
+    with pytest.raises(typer.BadParameter, match="already exists"):
+        save_download(FileContent(filename=None, content_type=None, content=b"%PDF"), str(link), force=False)
+
+    assert victim.read_bytes() == b"keep me"
+
+
+def test_force_overwrites_an_existing_file(tmp_path):
+    target = tmp_path / "a.pdf"
+    target.write_bytes(b"old")
+
+    save_download(FileContent(filename=None, content_type=None, content=b"%PDF"), str(target), force=True)
+
+    assert target.read_bytes() == b"%PDF"
