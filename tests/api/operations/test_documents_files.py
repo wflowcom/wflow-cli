@@ -109,3 +109,12 @@ async def test_an_export_over_the_limit_is_refused():
         await documents.export_documents(
             client, organization="acme", format="excel", filter={"sort": "number asc"}, max_bytes=32
         )
+
+
+async def test_a_document_from_text_instead_of_bytes_sends_nothing():
+    client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
+
+    with pytest.raises(WflowError, match=r"^create_document_with_files: invalid arguments\. content: "):
+        await documents.create_document_with_files(client, organization="acme", filename="a.pdf", content="a.pdf")
+
+    assert requests == []

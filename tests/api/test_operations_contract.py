@@ -57,6 +57,8 @@ MCP_ONLY = (
 UNENCODED_PLACEHOLDERS = {
     "str(value).lower()": "lock_* sends a bool as true/false, which can never carry a slash or a dot",
 }
+UPLOADS = {"upload_document_file", "create_document_with_files", "upload_storage_file"}
+DOWNLOADS = {"download_document_main_file", "download_document_file", "download_storage_file", "export_documents"}
 MCP_TERMS = re.compile(r"\btools?\b|MCP|reconnect|input schema", re.IGNORECASE)
 
 
@@ -194,3 +196,24 @@ def test_every_path_placeholder_is_the_slug_or_an_encoded_segment(ops):
         for placeholder in api_placeholders(fn):
             safe = placeholder == "organization" or placeholder.startswith("path_segment(")
             assert safe or placeholder in UNENCODED_PLACEHOLDERS, f"{name} puts {{{placeholder}}} in its path unencoded"
+
+
+def test_every_upload_takes_a_filename_and_bytes(ops):
+    uploads = {name for name, fn in ops.items() if "content" in inspect.signature(fn).parameters}
+
+    assert uploads == UPLOADS
+    for name in uploads:
+        parameters = inspect.signature(ops[name]).parameters
+        assert parameters["content"].annotation is bytes, f"{name} does not take content as bytes"
+        assert parameters["filename"].annotation is str, f"{name} does not take filename as str"
+
+
+def test_every_download_returns_a_file_and_caps_it_by_keyword(ops):
+    downloads = {name for name, fn in ops.items() if inspect.signature(fn).return_annotation is FileContent}
+
+    assert downloads == DOWNLOADS
+    for name in downloads:
+        cap = inspect.signature(ops[name]).parameters.get("max_bytes")
+        assert cap is not None, f"{name} has no max_bytes"
+        assert cap.kind is inspect.Parameter.KEYWORD_ONLY, f"{name} lets max_bytes be positional"
+        assert (cap.annotation, cap.default) == (int | None, None), f"{name} declares max_bytes differently"

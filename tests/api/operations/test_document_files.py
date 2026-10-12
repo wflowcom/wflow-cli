@@ -160,3 +160,14 @@ async def test_a_zero_byte_upload_is_sent_and_hands_back_its_id():
     assert len(requests) == 1
     assert b'name="file"; filename="blank.pdf"' in requests[0].content
     assert (result.action, result.id) == ("created", "f-0")
+
+
+async def test_an_upload_given_text_instead_of_bytes_sends_nothing():
+    client, requests = mock_wflow({"/api/acme/documents/d-1/files/upload": "f-9"})
+
+    with pytest.raises(WflowError, match=r"^upload_document_file: invalid arguments\. content: "):
+        await document_files.upload_document_file(
+            client, organization="acme", documentId="d-1", filename="scan.pdf", content="scan.pdf"
+        )
+
+    assert requests == []
