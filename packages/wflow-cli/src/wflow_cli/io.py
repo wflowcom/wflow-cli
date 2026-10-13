@@ -57,14 +57,19 @@ def check_output(output: str, force: bool) -> None:
         raise typer.BadParameter(f"cannot write {path}: {path.parent} is not writable", param_hint="--output")
 
 
-def save_download(file: FileContent, output: str) -> None:
+def save_download(file: FileContent, output: str, force: bool) -> None:
     if output == STDIN:
         sys.stdout.buffer.write(file.content)
         sys.stdout.buffer.flush()
         return
     path = Path(output)
     try:
-        path.write_bytes(file.content)
+        with path.open("wb" if force else "xb") as target:
+            target.write(file.content)
+    except FileExistsError:
+        raise typer.BadParameter(
+            f"{path} already exists; pass --force to overwrite it", param_hint="--output"
+        ) from None
     except OSError as error:
         raise typer.BadParameter(f"cannot write {path}: {error.strerror or error}", param_hint="--output") from None
     print_json(

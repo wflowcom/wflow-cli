@@ -1,4 +1,4 @@
-# No image and no integration suite in this repo, so those jobs are skipped.
+# Lint and unit tests on every supported Python.
 
 name: PR Validation
 
@@ -13,7 +13,6 @@ concurrency:
 
 permissions:
   contents: read
-  checks: write
 
 jobs:
   validate:
@@ -21,8 +20,18 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
-    uses: wflowcom/ai-gh-actions/.github/workflows/pr-validation.yml@pr-validation/v1
-    with:
-      python-version: ${{ matrix.python-version }}
-      skip-docker-build: true
-      skip-integration-tests: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.10.6"
+          python-version: ${{ matrix.python-version }}
+
+      - run: make lint
+
+      - run: make test
