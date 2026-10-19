@@ -50,6 +50,7 @@ ai_box: ai_box_build
 			"$$HOME/.claude/settings.json" > "$$stage/settings.json"; \
 	fi && \
 	docker run --rm -it \
+		--name "$$(date +%Y%m%d-%H%M%S)-wflow-cli" \
 		--init --pids-limit 512 --memory 8g --cpus 4 --cap-drop=ALL --security-opt no-new-privileges \
 		-e GITHUB_WFLOW_PAT \
 		-e AIBOX_BRANCH="$(AIBOX_BRANCH)" \
