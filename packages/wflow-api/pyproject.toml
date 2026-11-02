@@ -2,8 +2,27 @@
 name = "wflow-api"
 version = "0.1.0"
 description = "Python client for the wflow.com public API"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "wflow.com" }]
+keywords = ["wflow", "api", "client", "async"]
+classifiers = [
+    "Framework :: Pydantic :: 2",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
 requires-python = ">=3.12"
 dependencies = ["httpx>=0.27", "pydantic>=2.12"]
+
+[project.urls]
+Homepage = "https://www.wflow.com"
+Documentation = "https://developers.wflow.com"
 
 [build-system]
 requires = ["uv_build>=0.10,<0.20"]

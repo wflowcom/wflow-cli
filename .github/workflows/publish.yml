@@ -1,0 +1,91 @@
+# A v* tag on master publishes to PyPI and creates the GitHub release; a manual run publishes to TestPyPI.
+
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.10.6"
+
+      - name: The tag matches both package versions
+        if: github.ref_type == 'tag'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          api="$(uv version --package wflow-api --short)"
+          cli="$(uv version --package wflow-cli --short)"
+          if [ "$tag" != "$api" ] || [ "$tag" != "$cli" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match wflow-api $api and wflow-cli $cli."
+            exit 1
+          fi
+
+      - name: The tag is on master
+        if: github.ref_type == 'tag'
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "Tag $GITHUB_REF_NAME points at a commit that is not on master."
+            exit 1
+          fi
+
+      - run: uv build --package wflow-api --out-dir dist
+      - run: uv build --package wflow-cli --out-dir dist
+
+      - name: The wheels install into a clean environment and run
+        run: |
+          uv venv "$RUNNER_TEMP/smoke"
+          uv pip install --python "$RUNNER_TEMP/smoke" --find-links dist wflow-cli
+          "$RUNNER_TEMP/smoke/bin/wflow" --version
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.10.6"
+
+      - name: Publish to TestPyPI
+        if: github.event_name == 'workflow_dispatch'
+        run: uv publish --trusted-publishing always --publish-url https://test.pypi.org/legacy/ --check-url https://test.pypi.org/simple/ dist/*
+
+      - name: Publish to PyPI
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/*
+
+      - name: GitHub release
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes

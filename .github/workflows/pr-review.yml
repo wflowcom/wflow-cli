@@ -1,0 +1,42 @@
+# Claude reviews each PR for critical issues; fork and bot PRs are skipped (no secrets / not allowed).
+
+name: PR Review
+
+on:
+  pull_request:
+    branches: [master, develop]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request for critical issues only: correctness bugs, security vulnerabilities and data loss.
+            Ignore style, naming, docs and suggestions. Read CLAUDE.md for the repository's rules.
+            Post exactly one comment with `gh pr comment`: each critical issue as `path:line — problem and its consequence`,
+            or the single line "No critical issues." when there are none.
+          claude_args: |
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
