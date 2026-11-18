@@ -56,6 +56,11 @@ async def list_documents(
     - `totalAmount`, `taxExclusiveAmount`, `currency`, `exchangeRate` — the money
     - `partnerName`, `partnerIC`, `partnerVAT` — who it is with
     - `approvalStatus`, `flowStatus`, `locked`, `removed` — where it is in its lifecycle
+    - `removedBy` — who moved the document to the recycle bin; cleared when it is restored
+    - `isBlockedByLimit` — the workspace's document limit was used up when the document was
+      created. A blocked document can be read, deleted and have its payments set; every other
+      change is refused. It is released automatically, oldest first, as capacity frees up
+    - `buyerReference` — the buyer's own routing code, e.g. a department or cost centre
     - `type`, `tags`, `createdBy`, `created`, `updated`
     """
     payload = await client.request(
@@ -80,7 +85,11 @@ async def get_document(client: WflowClient, organization: OrgSlug, documentId: s
     - `vaTs` — the VAT breakdown per rate
     - `accounting` — how the document is posted
     - `partner`, `deliveryLocation` — the resolved register records; the list summary
-      carries only the names copied onto the document
+      carries only the names copied onto the document. `partner.buyerReference` is the
+      reference the partner wants on its documents; wflow does not copy it onto this
+      document's `buyerReference` when the document is written through the API
+    - `printSettings` — how the generated PDF is printed: the texts above and below the
+      lines and in the footer, the payment method, the language and the template
 
     Already on the list summary, not new here: `serie` (also a resolved record, not a
     string), `payment`, `series` (a deprecated code, distinct from `serie`), `source`
@@ -416,6 +425,18 @@ async def update_document(
     changing a document that exists, and send back the fields this operation declares rather
     than the whole read, which also carries the status, timestamps and resolved register
     records that only a read has. `ignoreLock` overrides a lock set by `lock_document`.
+    A document with `isBlockedByLimit` set refuses this write.
+
+    `buyerReference` (max 100 characters) is not filled in from the partner register: send
+    it when the document needs one. Left out, it keeps its stored value; send `""` to clear it.
+
+    `printSettings` controls the generated PDF. Left out, the stored settings are kept. An
+    object replaces all six settings at once and clears any you leave out, so send the ones
+    you mean to keep as well; `{}` resets them all. `textAboveLines`, `textBelowLines` and
+    `footerText` take up to 500 characters each. `paymentMethod` is one of BankTransfer,
+    Card, Cash. `language` is a 2-letter code; without one the PDF uses the partner's
+    language, then the workspace default. Leave `templateId` unset: it selects a legacy
+    template that cannot be discovered through this API.
 
     Fields: on the result —
 

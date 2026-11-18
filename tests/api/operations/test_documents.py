@@ -409,6 +409,66 @@ async def test_a_date_in_a_body_leaves_as_a_string_rather_than_raising():
     assert json.loads(requests[0].content) == {"number": "2026001", "issueDate": "2026-01-15T00:00:00Z"}
 
 
+async def test_a_document_update_sends_an_empty_print_settings_object_to_reset_it():
+    client, requests = mock_wflow({"/api/acme/documents": "d-1"})
+
+    await documents.update_document(client, organization="acme", document={"id": "d-1", "printSettings": {}})
+
+    assert json.loads(requests[0].content) == {"id": "d-1", "printSettings": {}}
+
+
+async def test_an_empty_buyer_reference_passes_the_guard_and_is_sent():
+    client, requests = mock_wflow({"/api/acme/documents": "d-1"})
+
+    await documents.update_document(
+        client,
+        organization="acme",
+        document={
+            "id": "d-1",
+            "buyerReference": "",
+            "printSettings": {"footerText": "Thanks", "paymentMethod": "BankTransfer"},
+        },
+    )
+
+    assert json.loads(requests[0].content) == {
+        "id": "d-1",
+        "buyerReference": "",
+        "printSettings": {"footerText": "Thanks", "paymentMethod": "BankTransfer"},
+    }
+
+
+async def test_a_document_read_carries_the_new_fields():
+    body = {
+        **DOCUMENT_BODY,
+        "buyerReference": "DEP-7",
+        "removedBy": "jan@acme.cz",
+        "isBlockedByLimit": True,
+        "printSettings": {"language": "en"},
+        "partner": {"id": "p-1", "buyerReference": "DEP-7"},
+    }
+    client, _ = mock_wflow({"/api/acme/documents/d-1": body})
+
+    result = await documents.get_document(client, organization="acme", documentId="d-1")
+
+    assert (result.buyerReference, result.removedBy, result.isBlockedByLimit) == ("DEP-7", "jan@acme.cz", True)
+    assert result.printSettings is not None and result.printSettings.language == "en"
+    assert result.partner is not None and result.partner.buyerReference == "DEP-7"
+    assert not result.model_extra
+    assert not result.printSettings.model_extra
+    assert not result.partner.model_extra
+
+
+async def test_a_document_summary_carries_the_new_fields():
+    body = {"items": [{"id": "d-1", "buyerReference": "DEP-7", "removedBy": "jan@acme.cz", "isBlockedByLimit": False}]}
+    client, _ = mock_wflow({"/api/acme/documents": body})
+
+    result = await documents.list_documents(client, organization="acme")
+
+    summary = result.items[0]
+    assert (summary.buyerReference, summary.removedBy, summary.isBlockedByLimit) == ("DEP-7", "jan@acme.cz", False)
+    assert not summary.model_extra
+
+
 async def test_metadata_travels_as_a_json_string_with_a_content_type():
     client, requests = mock_wflow({"/api/acme/documents/d-1/metadata": None})
 
