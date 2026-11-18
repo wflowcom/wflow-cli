@@ -710,7 +710,7 @@ wheels = [
 
 [[package]]
 name = "wflow-api"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/wflow-api" }
 dependencies = [
     { name = "httpx" },
@@ -725,7 +725,7 @@ requires-dist = [
 
 [[package]]
 name = "wflow-cli"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/wflow-cli" }
 dependencies = [
     { name = "typer" },

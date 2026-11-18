@@ -14,6 +14,7 @@ from pydantic.fields import FieldInfo
 
 from wflow_api import FileContent, WflowApiError, WflowClient, WflowError
 from wflow_api.auth import TOKEN_PATH
+from wflow_api.models.common import UploadFiles
 from wflow_api.operations import operations
 from wflow_cli import __version__
 from wflow_cli.credentials import ConfigError
@@ -114,6 +115,17 @@ def _options(fn: Operation) -> tuple[list[inspect.Parameter], dict[str, str]]:
             option = typer.Option("--file", help="The file to upload.", exists=True, dir_okay=False, readable=True)
             parameters.append(inspect.Parameter(name, KEYWORD, annotation=_annotated(Path, option)))
             continue
+        if hints[name] == UploadFiles:
+            kinds[name] = "files"
+            option = typer.Option(
+                "--file",
+                help="A file to upload; repeat --file for several. The first becomes the main file.",
+                exists=True,
+                dir_okay=False,
+                readable=True,
+            )
+            parameters.append(inspect.Parameter(name, KEYWORD, annotation=_annotated(list[Path], option)))
+            continue
         if bare in SIMPLE:
             kinds[name] = "value"
             option = _option(name, bare, description)
@@ -166,6 +178,8 @@ def _arguments(kinds: dict[str, str], values: dict[str, Any]) -> dict[str, Any]:
             arguments[name] = None if value is None else read_json(value, option_name(name))
         elif kinds[name] == "file":
             arguments[name] = value.read_bytes()
+        elif kinds[name] == "files":
+            arguments[name] = [(path.name, path.read_bytes()) for path in value]
         else:
             arguments[name] = value
     if "file" in kinds.values() and arguments.get("filename") is None:

@@ -66,6 +66,7 @@ keeps no version history — read `wflow <command> --help` before writing.
 
 ```bash
 wflow upload-document-file -o acme --document-id <id> --file ./invoice.pdf
+wflow create-document-with-files -o acme --type-id <id> --file ./invoice.pdf --file ./annex.pdf
 wflow download-document-file -o acme --file-id <id> --output ./invoice.pdf
 wflow download-document-file -o acme --file-id <id> --output - > invoice.pdf
 ```

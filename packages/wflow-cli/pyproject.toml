@@ -1,6 +1,6 @@
 [project]
 name = "wflow-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "Command-line client for the wflow.com public API"
 readme = "README.md"
 license = "Apache-2.0"
@@ -17,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.12"
-dependencies = ["wflow-api==0.1.0", "typer~=0.27.3"]
+dependencies = ["wflow-api==0.2.0", "typer~=0.27.3"]
 
 [project.urls]
 Homepage = "https://www.wflow.com"
