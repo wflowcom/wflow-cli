@@ -41,6 +41,10 @@ NAME_PREFIXES = (
     "link_",
     "unlink_",
     "allow_",
+    "accept_",
+    "mark_",
+    "reject_",
+    "send_",
 )
 READ_PREFIXES = ("list_", "get_", "download_")
 WRITE_PREFIXES = tuple(prefix for prefix in NAME_PREFIXES if prefix not in READ_PREFIXES)

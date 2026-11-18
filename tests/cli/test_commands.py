@@ -30,7 +30,7 @@ def test_every_operation_is_a_command():
     registered = {command.name for command in app.registered_commands}
 
     assert registered == {command_name(fn.__name__) for _, fn in operations()}
-    assert len(registered) == 173
+    assert len(registered) == 182
 
 
 @pytest.mark.parametrize(("module", "fn"), operations(), ids=lambda value: getattr(value, "__name__", value))

@@ -26,17 +26,17 @@ def test_no_operation_wraps_an_endpoint_that_does_not_exist(wflow_spec):
 
 def test_full_coverage(wflow_spec):
     assert library_names() == spec_names(wflow_spec)
-    assert len(library_names()) == 173
+    assert len(library_names()) == 182
 
 
 def test_every_operation_is_counted_once():
     names = [fn.__name__ for _, fn in operations()]
 
-    assert len(names) == len(set(names)) == 173
+    assert len(names) == len(set(names)) == 182
 
 
-def test_the_spec_still_documents_173_operations(wflow_spec):
-    assert len(spec_names(wflow_spec)) == 173
+def test_the_spec_still_documents_182_operations(wflow_spec):
+    assert len(spec_names(wflow_spec)) == 182
 
 
 def writable_register_segments(wflow_spec) -> set[str]:
