@@ -134,12 +134,12 @@ async def download_peppol_message_attachment(
 async def accept_peppol_message(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
     """Accept an incoming Peppol message: send the Accepted (AP) response to its sender.
 
-    For incoming messages only; get the id from `list_peppol_messages`. The response goes
-    to the sender over the Peppol network, and the message's `status` changes to AP only
-    once the Peppol provider confirms it, so read the message again to see the result.
-    A sent response cannot be withdrawn. The same or another response may be sent later,
-    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
-    access, and the workspace must have Peppol enabled.
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes to
+    the sender over the Peppol network, and the message's `status` changes to AP only once
+    the Peppol provider confirms it, so read the message again to see the result. A sent
+    response cannot be withdrawn. The same or another response may be sent later, but it
+    follows this one rather than undoing it. The linked wflow document is not changed. Needs
+    inbox access, and the workspace must have Peppol enabled.
 
     Fields: on the result —
 
@@ -154,12 +154,12 @@ async def accept_peppol_message(client: WflowClient, organization: OrgSlug, id: 
 async def accept_peppol_message_conditionally(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
     """Accept an incoming Peppol message on conditions: send the Conditionally accepted (CA) response.
 
-    For incoming messages only; get the id from `list_peppol_messages`. The response goes
-    to the sender over the Peppol network, and the message's `status` changes to CA only
-    once the Peppol provider confirms it, so read the message again to see the result.
-    A sent response cannot be withdrawn. The same or another response may be sent later,
-    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
-    access, and the workspace must have Peppol enabled.
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes to
+    the sender over the Peppol network, and the message's `status` changes to CA only once
+    the Peppol provider confirms it, so read the message again to see the result. A sent
+    response cannot be withdrawn. The same or another response may be sent later, but it
+    follows this one rather than undoing it. The linked wflow document is not changed. Needs
+    inbox access, and the workspace must have Peppol enabled.
 
     Fields: on the result —
 
@@ -174,12 +174,12 @@ async def accept_peppol_message_conditionally(client: WflowClient, organization:
 async def mark_peppol_message_under_query(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
     """Put an incoming Peppol message under query: send the Under query (UQ) response to its sender.
 
-    For incoming messages only; get the id from `list_peppol_messages`. The response goes
-    to the sender over the Peppol network, and the message's `status` changes to UQ only
-    once the Peppol provider confirms it, so read the message again to see the result.
-    A sent response cannot be withdrawn. The same or another response may be sent later,
-    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
-    access, and the workspace must have Peppol enabled.
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes to
+    the sender over the Peppol network, and the message's `status` changes to UQ only once
+    the Peppol provider confirms it, so read the message again to see the result. A sent
+    response cannot be withdrawn. The same or another response may be sent later, but it
+    follows this one rather than undoing it. The linked wflow document is not changed. Needs
+    inbox access, and the workspace must have Peppol enabled.
 
     Fields: on the result —
 
@@ -194,12 +194,12 @@ async def mark_peppol_message_under_query(client: WflowClient, organization: Org
 async def mark_peppol_message_paid(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
     """Mark an incoming Peppol message paid: send the Paid (PD) response to its sender.
 
-    For incoming messages only; get the id from `list_peppol_messages`. The response goes
-    to the sender over the Peppol network, and the message's `status` changes to PD only
-    once the Peppol provider confirms it, so read the message again to see the result.
-    A sent response cannot be withdrawn. The same or another response may be sent later,
-    but it follows this one rather than undoing it. The linked wflow document is not changed and records
-    no payment. Needs inbox access, and the workspace must have Peppol enabled.
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes to
+    the sender over the Peppol network, and the message's `status` changes to PD only once
+    the Peppol provider confirms it, so read the message again to see the result. A sent
+    response cannot be withdrawn. The same or another response may be sent later, but it
+    follows this one rather than undoing it. The linked wflow document is not changed and
+    records no payment. Needs inbox access, and the workspace must have Peppol enabled.
 
     Fields: on the result —
 
@@ -240,19 +240,19 @@ async def reject_peppol_message(
 ) -> WriteResult:
     """Reject an incoming Peppol message: send the Rejected (RE) response to its sender.
 
-    For incoming messages only; get the id from `list_peppol_messages`. The response goes
-    to the sender over the Peppol network, and the message's `status` changes to RE only
-    once the Peppol provider confirms it, so read the message again to see the result.
-    A sent response cannot be withdrawn. The same or another response may be sent later,
-    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
-    access and, separately, the right to reject Peppol messages; the workspace must have
-    Peppol enabled.
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes to
+    the sender over the Peppol network, and the message's `status` changes to RE only once
+    the Peppol provider confirms it, so read the message again to see the result. A sent
+    response cannot be withdrawn. The same or another response may be sent later, but it
+    follows this one rather than undoing it. The linked wflow document is not changed. Needs
+    the right to reject Peppol messages; inbox access alone is not enough. The workspace
+    must have Peppol enabled.
 
-    Every argument after `id` is optional. `reason` is sent to the counterparty; without
-    it the rejection says there is no issue (NoIssue). `note` is sent with it and is
-    stored as the message's `message` text. `requiredAction` is stored on the message as
-    `requiredAction`, defaulting to NoActionRequired, but it is never sent: the
-    counterparty does not see it, so put what they must do in `note`.
+    Every argument after `id` is optional. `reason` is sent to the counterparty; without it
+    the rejection says there is no issue (NoIssue). `note` is sent with it and is stored as
+    the message's `message` text. `requiredAction` is stored on the message as
+    `requiredAction`, defaulting to NoActionRequired, but it is never sent: the counterparty
+    does not see it, so put what they must do in `note`.
 
     Fields: on the result —
 

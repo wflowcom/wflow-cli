@@ -131,7 +131,16 @@ async def test_a_reject_sends_only_what_was_given():
     client, requests = mock_wflow({"/api/acme/peppol/messages/m-1/reject": None})
 
     await peppol.reject_peppol_message(
-        client, organization="acme", id="m-1", reason="PricesIncorrect", note="Unit price differs"
+        client,
+        organization="acme",
+        id="m-1",
+        reason="PricesIncorrect",
+        requiredAction="CreditFully",
+        note="Unit price differs",
     )
 
-    assert json.loads(requests[0].content) == {"reason": "PricesIncorrect", "note": "Unit price differs"}
+    assert json.loads(requests[0].content) == {
+        "reason": "PricesIncorrect",
+        "requiredAction": "CreditFully",
+        "note": "Unit price differs",
+    }
