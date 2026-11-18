@@ -5,7 +5,7 @@ import pytest
 
 from tests.helpers import mock_wflow
 from wflow_api.errors import WflowApiError, WflowError
-from wflow_api.models.documents import Document, DocumentBase, DocumentEvent
+from wflow_api.models.documents import Document, DocumentBase, DocumentEvent, DocumentPrintSettings
 from wflow_api.models.requests import DocumentUpdate
 from wflow_api.operations import document_files, documents
 
@@ -604,3 +604,15 @@ def test_the_document_update_names_its_two_exceptions_to_sending_the_full_record
     assert "Left out" not in description
     assert 'Send `""` to clear it' in description
     assert "`{}` resets them all" in description
+
+
+def test_the_document_update_says_a_print_settings_object_without_the_template_clears_it():
+    description = " ".join((documents.update_document.__doc__ or "").split())
+    field = " ".join((DocumentPrintSettings.model_fields["templateId"].description or "").split())
+
+    assert (
+        "Send back the `templateId` that `get_document` returned: a `printSettings` object without it clears the "
+        "template."
+    ) in description
+    assert "leaving it out clears it" not in description
+    assert "A printSettings object without it clears the template" in field

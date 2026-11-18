@@ -62,7 +62,7 @@ class DocumentPrintSettings(WflowModel):
     )
     templateId: int | None = Field(
         default=None,
-        description="Legacy print template id. It cannot be discovered through the API: send back the value a read returned, never one of your own",
+        description="Legacy print template id. It cannot be discovered through the API: send back the value a read returned, never one of your own. A printSettings object without it clears the template",
     )
 
 

@@ -862,7 +862,7 @@ async def update_register_partners(
     it replaces them wholesale, so an empty list deletes every one of them.
 
     `buyerReference` is the other: omitted or `null`, it keeps the stored value; an empty string
-    clears it.
+    clears it. It takes up to 100 characters; a longer value is refused, so the whole write fails.
 
     Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
     `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,
@@ -1565,7 +1565,7 @@ async def patch_register_partners(
     and an empty list deletes every one.
 
     `buyerReference` is the other: omitted or `null`, it keeps the stored value; an empty string
-    clears it.
+    clears it. It takes up to 100 characters; a longer value is refused, so the whole write fails.
 
     Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
     `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,

@@ -322,6 +322,7 @@ def test_a_partner_write_says_how_to_keep_and_clear_the_buyer_reference(name):
         "`buyerReference` is the other: omitted or `null`, it keeps the stored value; an empty string clears it."
         in description
     )
+    assert "It takes up to 100 characters; a longer value is refused, so the whole write fails." in description
 
 
 def test_the_partner_buyer_reference_states_its_limit():

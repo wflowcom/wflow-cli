@@ -448,8 +448,8 @@ async def update_document(
     Card, Cash. `language` is a 2-letter code, and a longer value is cut to its first two
     letters; without one the PDF uses the partner's language, then the workspace default.
     Never choose a `templateId` yourself: it selects a legacy template that cannot be
-    discovered through this API. Send back the value `get_document` returned, because
-    leaving it out clears it.
+    discovered through this API. Send back the `templateId` that `get_document` returned: a
+    `printSettings` object without it clears the template.
 
     Fields: on the result —
 
