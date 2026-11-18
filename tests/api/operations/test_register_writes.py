@@ -7,6 +7,7 @@ import pytest
 
 from tests.helpers import body_source, mock_wflow
 from wflow_api.errors import WflowApiError, WflowError
+from wflow_api.models.registers import PartnerFull
 from wflow_api.operations import registers
 
 PARTNER = {"externalId": "ERP-1", "name": "Noname Ltd.", "ic": "12345678", "supplier": True}
@@ -302,3 +303,23 @@ def test_a_patch_writes_the_same_segment_as_its_update(name):
     assert written_segment(name) == written_segment(twin), (
         f"{name} writes registers/{written_segment(name)} but {twin} writes registers/{written_segment(twin)}"
     )
+
+
+@pytest.mark.parametrize("name", ["update_register_partners", "patch_register_partners"])
+async def test_an_empty_buyer_reference_reaches_wflow_to_clear_it(name):
+    client, requests = mock_wflow({"/api/acme/registers/partners": None})
+
+    await getattr(registers, name)(client, "acme", [{**PARTNER, "buyerReference": ""}])
+
+    assert json.loads(requests[0].content) == [{**PARTNER, "buyerReference": ""}]
+
+
+@pytest.mark.parametrize("name", ["update_register_partners", "patch_register_partners"])
+def test_a_partner_write_says_how_to_keep_and_clear_the_buyer_reference(name):
+    description = " ".join((inspect.getdoc(getattr(registers, name)) or "").split())
+
+    assert "`buyerReference` omitted or `null` keeps the stored value; an empty string clears it" in description
+
+
+def test_the_partner_buyer_reference_states_its_limit():
+    assert "max 100 characters" in PartnerFull.model_fields["buyerReference"].description

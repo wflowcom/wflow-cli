@@ -858,8 +858,11 @@ async def update_register_partners(
     record. That includes `isValid`, which defaults to true, so a payload omitting it revives a
     record you had retired.
 
-    `peppolIds` is the exception. Omitted, it leaves the partner's existing Peppol IDs alone; sent,
+    `peppolIds` is one exception. Omitted, it leaves the partner's existing Peppol IDs alone; sent,
     it replaces them wholesale, so an empty list deletes every one of them.
+
+    `buyerReference` is the other: `buyerReference` omitted or `null` keeps the stored value; an
+    empty string clears it.
 
     Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
     `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,
@@ -1557,9 +1560,12 @@ async def patch_register_partners(
     payload for it, because `isValid` defaults to true and a write that omits it revives the
     record.
 
-    `peppolIds` is the exception to all of that. Omitted, it leaves the partner's existing Peppol
+    `peppolIds` is one exception to all of that. Omitted, it leaves the partner's existing Peppol
     IDs alone; sent, it is synchronised to match your list, so an ID you did not include is deleted
     and an empty list deletes every one.
+
+    `buyerReference` is the other: `buyerReference` omitted or `null` keeps the stored value; an
+    empty string clears it.
 
     Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
     `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,
