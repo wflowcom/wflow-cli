@@ -186,6 +186,9 @@ def test_the_export_description_states_what_marking_and_parameters_do():
     assert "required for kros" in doc
     assert "definition ids are not available through this API" in doc
     assert "Other formats ignore it" in doc
+    assert "refused by `max_bytes`, the documents stay marked and locked" in doc
+    assert '"tmfdphcz", "xml" or "zugferd"' in doc
+    assert '"outputFormat": "Pdf"|"Xml"' in doc
     assert "`sequence` applies only to documents with no series of their own" in doc
     assert '`{"cashSlipKind": "ProdejkaPrijata"|"PokladniDoklad"|"ZavazkovyDoklad"}`' in doc
     assert "`sequence` is accepted but has no effect" in doc
@@ -207,7 +210,10 @@ async def test_a_missing_or_empty_type_is_refused_before_any_request(type_id, pr
     assert requests == []
 
 
-@pytest.mark.parametrize("files,problem", [([], "files"), ([("a.pdf", "text")], "files.0.1")])
+@pytest.mark.parametrize(
+    "files,problem",
+    [([], "files"), ([("a.pdf", "text")], "files.0.1"), ([("a.pdf", b"%PDF"), ("", b"%PDF")], "files.1.0")],
+)
 async def test_no_files_or_text_instead_of_bytes_sends_nothing(files, problem):
     client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
 

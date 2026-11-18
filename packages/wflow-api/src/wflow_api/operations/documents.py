@@ -604,7 +604,8 @@ async def create_document_with_files(
     QR receipt on a Slovak cash slip only from the first file. When the files hold an
     e-invoice but no PDF, wflow generates one only for an invoice document type, only when
     the workspace has that turned on, and not when the e-invoice already embeds a PDF.
-    Each file can be at most 10 MB.
+    Each file can be at most 10 MB. The first file's name becomes the new document's
+    partner name until one is read from the files or set by hand.
 
     When wflow recognises the buyer as another workspace of the same customer, it moves the
     new document there and returns that workspace's slug as `newOrganization`; use that
@@ -653,8 +654,9 @@ async def export_documents(
 ) -> FileContent:
     """Export a set of documents as one file, in an accounting system's own format.
 
-    `format` is one of "byznyssolitea", "datev", "excel", "generic", "isdoc", "kros",
-    "moneyerp", "moneys3", "mrp", "premier" or "xml"; another value is rejected outright.
+    `format` is one of "bmdcz", "bmdsk", "byznyssolitea", "datev", "excel", "generic",
+    "isdoc", "kros", "moneyerp", "moneys3", "mrp", "premier", "tmfdphcz", "xml" or
+    "zugferd"; another value is rejected outright.
     `filter` chooses which documents go in — `filters` per column, `propertyFilters` per
     custom property, `search` as free text — and **`sort` is required**: pass something
     like "number asc", because wflow fails the export without it, an empty `filter`
@@ -663,7 +665,10 @@ async def export_documents(
     `markAsExported` true changes the exported documents, not just the file: each one's
     pending export task is marked done, its status becomes sent-to-ERP and **the document
     is locked**, so it drops out of `list_documents_to_export`. Documents in the export
-    with no pending export task are skipped silently.
+    with no pending export task are skipped silently. The marking happens before the file
+    reaches you: if the download fails, times out or is refused by `max_bytes`, the
+    documents stay marked and locked without you holding the file. `lock_document` can
+    unlock them; their sent-to-ERP status stays.
 
     `parameters` is a JSON string of settings for the chosen format, with camelCase keys
     and enum values given by name:
@@ -677,6 +682,8 @@ async def export_documents(
     - kros — `{"cashSlipType": "pd"|"id", "incomingInvoiceTarget": "inv"|"eud"}`, required for kros
     - generic — `{"definitionId": guid}`, required for generic, and definition ids are not
       available through this API
+    - zugferd — `{"version": "Version1"|"Version20"|"Version23", "profile": str, "outputFormat": "Pdf"|"Xml"}`;
+      left out, it is version 2.3, the Extended profile and XML
 
     Other formats ignore it.
 

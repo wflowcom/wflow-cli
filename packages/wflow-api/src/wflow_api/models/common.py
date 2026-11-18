@@ -94,7 +94,7 @@ Query = Annotated[
 PageSize = Annotated[int | None, Field(default=None, description="Records per page")]
 Page = Annotated[int | None, Field(default=None, description="Page number, zero-based")]
 UploadFiles = Annotated[
-    list[tuple[str, Annotated[bytes, Strict()]]],
+    list[tuple[Annotated[str, Field(min_length=1)], Annotated[bytes, Strict()]]],
     Field(
         min_length=1,
         description="Files as (filename, bytes) pairs, in order: the first becomes the main file, the rest attachments",
