@@ -170,7 +170,8 @@ class DocumentBase(WflowModel):
         default=None, description="Name or login of user, who moved the document to the recycle bin"
     )
     isBlockedByLimit: bool | None = Field(
-        default=None, description="The document is over the workspace's document limit and must not be processed"
+        default=None,
+        description="The workspace's document limit was used up when the document was created; until it is released, only reading, deleting and setting payments are allowed",
     )
     series: str | None = Field(default=None, description="Serie code - Deprecated")
     type: DocumentTypeBase | None = None
@@ -424,7 +425,8 @@ class Document(WflowModel):
         default=None, description="Name or login of user, who moved the document to the recycle bin"
     )
     isBlockedByLimit: bool | None = Field(
-        default=None, description="The document is over the workspace's document limit and must not be processed"
+        default=None,
+        description="The workspace's document limit was used up when the document was created; until it is released, only reading, deleting and setting payments are allowed",
     )
     series: str | None = Field(default=None, description="Serie code - Deprecated")
     type: DocumentType | None = None

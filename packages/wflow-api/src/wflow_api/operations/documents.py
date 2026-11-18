@@ -432,6 +432,9 @@ async def update_document(
     records that only a read has. `ignoreLock` overrides a lock set by `lock_document`.
     A document with `isBlockedByLimit` set refuses this write.
 
+    Two fields are exceptions: `buyerReference` and `printSettings` keep their stored value
+    when you leave them out.
+
     `buyerReference` (max 100 characters) is not filled in from the partner register: send
     it when the document needs one. Left out, it keeps its stored value; send `""` to clear it.
 

@@ -5,7 +5,7 @@ import pytest
 
 from tests.helpers import mock_wflow
 from wflow_api.errors import WflowApiError, WflowError
-from wflow_api.models.documents import DocumentEvent
+from wflow_api.models.documents import Document, DocumentBase, DocumentEvent
 from wflow_api.models.requests import DocumentUpdate
 from wflow_api.operations import document_files, documents
 
@@ -494,6 +494,12 @@ async def test_metadata_travels_as_a_json_string_with_a_content_type():
             r"lines\[1\]\.quantitiy",
         ),
         (
+            "update_document",
+            {"document": {"id": "d-1", "printSettings": {"footer": "x"}}},
+            "/api/acme/documents",
+            r"printSettings\.footer",
+        ),
+        (
             "update_document_payments",
             {"documentId": "d-1", "payments": [{"amount": 1.0}, {"amont": 2.0}]},
             "/api/acme/documents/d-1/payments",
@@ -569,3 +575,16 @@ def test_the_event_list_explains_the_new_event_types():
     description = " ".join((documents.list_document_events.__doc__ or "").split())
 
     assert all(f"`{event_type}`" in description for event_type in NEW_EVENT_TYPES)
+
+
+@pytest.mark.parametrize("model", [DocumentBase, Document])
+def test_a_blocked_document_says_what_is_still_allowed(model):
+    description = model.model_fields["isBlockedByLimit"].description or ""
+
+    assert "only reading, deleting and setting payments are allowed" in description
+
+
+def test_the_document_update_names_its_two_exceptions_to_sending_the_full_record():
+    description = " ".join((documents.update_document.__doc__ or "").split())
+
+    assert "Two fields are exceptions: `buyerReference` and `printSettings`" in description
