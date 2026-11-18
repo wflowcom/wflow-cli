@@ -588,7 +588,10 @@ async def create_document_with_files(
     typeId: Annotated[str, Field(min_length=1, description="Document type to file it under, from list_document_types")],
     invoiceType: Annotated[
         str | None,
-        Field(default=None, description="TaxInvoice, CreditNote, DebitNote, Proforma or TaxInvoicePayment"),
+        Field(
+            default=None,
+            description="TaxInvoice, CreditNote, DebitNote, Proforma or TaxInvoicePayment; omitted means TaxInvoice",
+        ),
     ] = None,
 ) -> CreateDocumentWithFilesResult:
     """Create one document from one or more files, each sent as its bytes and the filename wflow should store it under.
@@ -596,10 +599,12 @@ async def create_document_with_files(
     This is how a scan becomes a document: wflow files it under `typeId`, which is
     required and which `list_document_types` names. The first file becomes the document's
     main file and the rest its attachments, unless an e-invoice (ISDOCX, UBL or ZUGFeRD)
-    carries an embedded main file, which then takes over. wflow reads an e-invoice found
-    among any of the files into the new document's fields, but the QR receipt on a Slovak
-    cash slip only from the first file. An e-invoice sent without a PDF gets one generated
-    only when the workspace has that turned on. Each file can be at most 10 MB.
+    carries an embedded main file, which then takes over. To fill the new document's
+    fields, wflow reads only the first file of each kind (PDF, XML, ISDOC, ISDOCX), and the
+    QR receipt on a Slovak cash slip only from the first file. When the files hold an
+    e-invoice but no PDF, wflow generates one only for an invoice document type, only when
+    the workspace has that turned on, and not when the e-invoice already embeds a PDF.
+    Each file can be at most 10 MB.
 
     When wflow recognises the buyer as another workspace of the same customer, it moves the
     new document there and returns that workspace's slug as `newOrganization`; use that
@@ -608,10 +613,10 @@ async def create_document_with_files(
     The call is not all-or-nothing. Only a failure while storing the files (or generating
     a missing PDF) discards the new document; any other failure, such as while saving the
     fields read from the files or moving the document to another workspace, or a timeout
-    on your side, can leave the document created. Before retrying a failed call, check `list_documents` for
-    the document (`sort` of "created desc" puts the newest first), or a retry can create
-    a duplicate. A refusal for lack of access to the document type means the caller is
-    not in that type's `users`, which `get_document_type` lists.
+    on your side, can leave the document created. Before retrying a failed call, check
+    `list_documents` for the document (`sort` of "created desc" puts the newest first), or
+    a retry can create a duplicate. A refusal for lack of access to the document type
+    means the caller is not in that type's `users`, which `get_document_type` lists.
 
     Fields: on the result —
 

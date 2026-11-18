@@ -223,6 +223,30 @@ def test_create_document_with_files_sends_every_file_in_order(tmp_path):
     assert json.loads(ran.stdout)["documentId"] == "d-9"
 
 
+def test_create_document_with_files_refuses_a_missing_file_before_sending_any(tmp_path):
+    main = tmp_path / "invoice.pdf"
+    main.write_bytes(b"%PDF-main")
+    client, sent = mock_wflow({})
+
+    ran = runner.invoke(
+        app_on(client),
+        [
+            "create-document-with-files",
+            "-o",
+            "acme",
+            "--type-id",
+            "t-1",
+            "--file",
+            str(main),
+            "--file",
+            str(tmp_path / "nope.pdf"),
+        ],
+    )
+
+    assert ran.exit_code == 2
+    assert sent == []
+
+
 def test_create_document_with_files_needs_a_file():
     client, sent = mock_wflow({})
 

@@ -77,6 +77,19 @@ async def test_an_empty_answer_is_a_result_with_nothing_set():
     assert (result.documentId, result.newOrganization) == (None, None)
 
 
+def test_the_multi_file_description_states_what_wflow_reads_and_when_it_generates_a_pdf():
+    doc = " ".join(inspect.getdoc(documents.create_document_with_files).split())
+    invoice_type = inspect.signature(documents.create_document_with_files).parameters["invoiceType"]
+    hint = " ".join(invoice_type.annotation.__metadata__[0].description.split())
+
+    assert "reads only the first file of each kind (PDF, XML, ISDOC, ISDOCX)" in doc
+    assert "the QR receipt on a Slovak cash slip only from the first file" in doc
+    assert "only for an invoice document type, only when the workspace has that turned on" in doc
+    assert "not when the e-invoice already embeds a PDF" in doc
+    assert "among any of the files" not in doc
+    assert hint.endswith("omitted means TaxInvoice")
+
+
 async def test_an_export_streams_back_as_the_files_own_bytes():
     body = b"<?xml version='1.0'?><invoices/>"
     client, requests = mock_download(body, content_type="application/xml", filename=None)
