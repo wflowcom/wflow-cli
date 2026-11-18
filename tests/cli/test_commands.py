@@ -12,7 +12,13 @@ from wflow_cli.commands import _command, _json_help, build_app, command_name, ex
 
 runner = CliRunner()
 
-DOWNLOADS = ("download-document-main-file", "download-document-file", "download-storage-file", "export-documents")
+DOWNLOADS = (
+    "download-document-main-file",
+    "download-document-file",
+    "download-storage-file",
+    "export-documents",
+    "download-peppol-message-attachment",
+)
 
 
 def test_names_follow_the_operation_mechanically():
