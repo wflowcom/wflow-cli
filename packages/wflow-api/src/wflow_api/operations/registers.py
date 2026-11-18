@@ -861,8 +861,8 @@ async def update_register_partners(
     `peppolIds` is one exception. Omitted, it leaves the partner's existing Peppol IDs alone; sent,
     it replaces them wholesale, so an empty list deletes every one of them.
 
-    `buyerReference` is the other: `buyerReference` omitted or `null` keeps the stored value; an
-    empty string clears it.
+    `buyerReference` is the other: omitted or `null`, it keeps the stored value; an empty string
+    clears it.
 
     Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
     `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,
@@ -1564,8 +1564,8 @@ async def patch_register_partners(
     IDs alone; sent, it is synchronised to match your list, so an ID you did not include is deleted
     and an empty list deletes every one.
 
-    `buyerReference` is the other: `buyerReference` omitted or `null` keeps the stored value; an
-    empty string clears it.
+    `buyerReference` is the other: omitted or `null`, it keeps the stored value; an empty string
+    clears it.
 
     Bank account fields are not reliably stored: `accounts`, `mainAccount` and the flat
     `accountNo`, `bankCode`, `iban`, `bic` and `currency` can be accepted, reported as a success,

@@ -574,17 +574,33 @@ def test_the_new_event_types_are_documented():
 def test_the_event_list_explains_the_new_event_types():
     description = " ".join((documents.list_document_events.__doc__ or "").split())
 
-    assert all(f"`{event_type}`" in description for event_type in NEW_EVENT_TYPES)
+    assert "Four types need explaining:" in description
+    for meaning in (
+        "`SentViaPeppol` — the document was queued for Peppol delivery and locked",
+        "`PaymentsSynchronized` — a sync changed the document's payments, and `info` holds the payment rows as "
+        "they were before the change",
+        "`ApprovalsTakenOverFromOrder` — the invoice was linked to an order automatically and copied the order's "
+        "approval path",
+        "`DeleteDocumentPaymentOrder` — a payment's payment-order step was removed",
+    ):
+        assert meaning in description
 
 
 @pytest.mark.parametrize("model", [DocumentBase, Document])
 def test_a_blocked_document_says_what_is_still_allowed(model):
-    description = model.model_fields["isBlockedByLimit"].description or ""
+    description = " ".join((model.model_fields["isBlockedByLimit"].description or "").split())
 
-    assert "only reading, deleting and setting payments are allowed" in description
+    assert "The workspace's document limit was used up when the document was created" in description
+    assert "until it is released, only reading, deleting and setting payments are allowed" in description
 
 
 def test_the_document_update_names_its_two_exceptions_to_sending_the_full_record():
     description = " ".join((documents.update_document.__doc__ or "").split())
 
-    assert "Two fields are exceptions: `buyerReference` and `printSettings`" in description
+    assert (
+        "Two fields are exceptions: `buyerReference` and `printSettings` keep their stored value when you leave "
+        "them out."
+    ) in description
+    assert "Left out" not in description
+    assert 'Send `""` to clear it' in description
+    assert "`{}` resets them all" in description

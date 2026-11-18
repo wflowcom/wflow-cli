@@ -86,13 +86,19 @@ async def test_the_settings_carry_the_print_theme_and_colour():
 def test_the_organization_explains_its_limit_window():
     description = " ".join((inspect.getdoc(organization.get_organization) or "").split())
 
-    for phrase in ("`limit`", "null means unlimited", "`documentsPerMonth` times `period`", "months", "`validFrom`"):
-        assert phrase in description
-    assert "`peppolVerified`" in description
+    assert (
+        "`limit` — the workspace's document limit; null means unlimited. The workspace gets `documentsPerMonth` "
+        "times `period` documents per window, `period` is in months, and the windows run back to back from "
+        "`validFrom`"
+    ) in description
+    assert "`peppolVerified` — wflow has verified the workspace for Peppol" in description
 
 
 def test_the_settings_explain_the_print_theme_and_colour():
     description = " ".join((inspect.getdoc(organization.get_organization_settings) or "").split())
 
-    assert "`printThemeId`" in description and "legacy" in description
-    assert "`printColor`" in description and "#RRGGBB" in description
+    assert (
+        "`printThemeId` — the theme the PDF engine prints the workspace's documents with; null keeps them on the "
+        "legacy print"
+    ) in description
+    assert "`printColor` — the accent colour of printed documents, as `#RRGGBB`" in description

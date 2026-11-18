@@ -130,7 +130,8 @@ async def list_document_events(client: WflowClient, organization: OrgSlug, docum
 
     Fields:
 
-    - `type` — e.g. Create, Update, Approved, Rejected, FileAdded, ChangedFlowStatus. Among them:
+    - `type` — e.g. Create, Update, Approved, Rejected, FileAdded, ChangedFlowStatus. Four types
+      need explaining:
       `SentViaPeppol` — the document was queued for Peppol delivery and locked;
       `PaymentsSynchronized` — a sync changed the document's payments, and `info` holds the
       payment rows as they were before the change; `ApprovalsTakenOverFromOrder` — the invoice
@@ -436,15 +437,15 @@ async def update_document(
     when you leave them out.
 
     `buyerReference` (max 100 characters) is not filled in from the partner register: send
-    it when the document needs one. Left out, it keeps its stored value; send `""` to clear it.
+    it when the document needs one. Send `""` to clear it.
 
-    `printSettings` controls the generated PDF. Left out, the stored settings are kept. An
-    object replaces all six settings at once and clears any you leave out, so send the ones
-    you mean to keep as well; `{}` resets them all. `textAboveLines`, `textBelowLines` and
-    `footerText` take up to 500 characters each. `paymentMethod` is one of BankTransfer,
-    Card, Cash. `language` is a 2-letter code; without one the PDF uses the partner's
-    language, then the workspace default. Leave `templateId` unset: it selects a legacy
-    template that cannot be discovered through this API.
+    `printSettings` controls the generated PDF. An object replaces all six settings at once
+    and clears any you leave out, so send the ones you mean to keep as well; `{}` resets them
+    all. `textAboveLines`, `textBelowLines` and `footerText` take up to 500 characters each.
+    `paymentMethod` is one of BankTransfer, Card, Cash. `language` is a 2-letter code;
+    without one the PDF uses the partner's language, then the workspace default. Leave
+    `templateId` unset: it selects a legacy template that cannot be discovered through this
+    API.
 
     Fields: on the result —
 
