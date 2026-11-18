@@ -23,7 +23,7 @@ async def get_organization(client: WflowClient, organization: OrgSlug) -> Organi
     - `authenticationPolicy`, `biDashboardStatus`, `biDashboardTrialExpires`
     - `limit` — the workspace's document limit; null means unlimited. The workspace gets
       `documentsPerMonth` times `period` documents per window, `period` is in months, and the windows
-      run back to back from `validFrom`
+      run back to back from the first day of `validFrom`'s month
     - `peppolVerified` — wflow has verified the workspace for Peppol
     """
     return Organization.model_validate(await client.request("GET", f"/api/{organization}/organization") or {})

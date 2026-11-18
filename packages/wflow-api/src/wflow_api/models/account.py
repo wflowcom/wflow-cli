@@ -80,7 +80,8 @@ class OrganizationLimit(WflowModel):
     documentsPerMonth: int | None = Field(default=None, description="Documents allowed per month of the window")
     period: int | None = Field(default=None, description="Length of one limit window, in months")
     validFrom: WflowTimestamp | None = Field(
-        default=None, description="Start of the first window; the windows follow back to back"
+        default=None,
+        description="The limit applies from this date; its windows run back to back from the first day of this date's month",
     )
 
 

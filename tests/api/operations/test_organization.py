@@ -89,7 +89,7 @@ def test_the_organization_explains_its_limit_window():
     assert (
         "`limit` — the workspace's document limit; null means unlimited. The workspace gets `documentsPerMonth` "
         "times `period` documents per window, `period` is in months, and the windows run back to back from "
-        "`validFrom`"
+        "the first day of `validFrom`'s month"
     ) in description
     assert "`peppolVerified` — wflow has verified the workspace for Peppol" in description
 
