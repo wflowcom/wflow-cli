@@ -48,7 +48,9 @@ async def test_several_files_go_as_uploaded_files_parts_in_order():
 async def test_a_document_moved_to_another_workspace_names_it():
     client, _ = mock_wflow({"/api/acme/documents/withfiles": {"documentId": "d-9", "newOrganization": "acme-sk"}})
 
-    result = await documents.create_document_with_files(client, organization="acme", files=[("invoice.pdf", b"%PDF")])
+    result = await documents.create_document_with_files(
+        client, organization="acme", files=[("invoice.pdf", b"%PDF")], typeId="t-1"
+    )
 
     assert (result.documentId, result.newOrganization) == ("d-9", "acme-sk")
 
@@ -56,7 +58,9 @@ async def test_a_document_moved_to_another_workspace_names_it():
 async def test_a_document_from_a_zero_byte_file_is_sent_as_wflow_would_receive_any_other():
     client, requests = mock_wflow({"/api/acme/documents/withfiles": {"documentId": "d-9"}})
 
-    result = await documents.create_document_with_files(client, organization="acme", files=[("blank.pdf", b"")])
+    result = await documents.create_document_with_files(
+        client, organization="acme", files=[("blank.pdf", b"")], typeId="t-1"
+    )
 
     assert len(requests) == 1
     assert b'name="uploadedFiles"; filename="blank.pdf"' in requests[0].content
@@ -66,7 +70,9 @@ async def test_a_document_from_a_zero_byte_file_is_sent_as_wflow_would_receive_a
 async def test_an_empty_answer_is_a_result_with_nothing_set():
     client, _ = mock_wflow({"/api/acme/documents/withfiles": None})
 
-    result = await documents.create_document_with_files(client, organization="acme", files=[("a.pdf", b"%PDF")])
+    result = await documents.create_document_with_files(
+        client, organization="acme", files=[("a.pdf", b"%PDF")], typeId="t-1"
+    )
 
     assert (result.documentId, result.newOrganization) == (None, None)
 
@@ -172,11 +178,27 @@ def test_the_export_description_states_what_marking_and_parameters_do():
     assert "`sequence` is accepted but has no effect" in doc
 
 
+@pytest.mark.parametrize(
+    "type_id,problem",
+    [
+        ({}, "missing a required argument: 'typeId'"),
+        ({"typeId": ""}, "typeId: String should have at least 1 character"),
+    ],
+)
+async def test_a_missing_or_empty_type_is_refused_before_any_request(type_id, problem):
+    client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
+
+    with pytest.raises(WflowError, match=rf"^create_document_with_files: invalid arguments\. {re.escape(problem)}"):
+        await documents.create_document_with_files(client, organization="acme", files=[("a.pdf", b"%PDF")], **type_id)
+
+    assert requests == []
+
+
 @pytest.mark.parametrize("files,problem", [([], "files"), ([("a.pdf", "text")], "files.0.1")])
 async def test_no_files_or_text_instead_of_bytes_sends_nothing(files, problem):
     client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
 
     with pytest.raises(WflowError, match=rf"^create_document_with_files: invalid arguments\. {re.escape(problem)}: "):
-        await documents.create_document_with_files(client, organization="acme", files=files)
+        await documents.create_document_with_files(client, organization="acme", files=files, typeId="t-1")
 
     assert requests == []
