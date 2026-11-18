@@ -626,6 +626,16 @@ def test_a_blocked_document_says_what_is_still_allowed(model):
     assert "until it is released, only reading, deleting and setting payments are allowed" in description
 
 
+def test_the_document_read_lists_the_new_summary_fields_and_what_a_blocked_document_allows():
+    description = " ".join((documents.get_document.__doc__ or "").split())
+
+    assert "`source`, `dataSource`, `buyerReference`, `removedBy` and `isBlockedByLimit`." in description
+    assert (
+        "A document with `isBlockedByLimit` set can be read, deleted and have its payments set; every other "
+        "change is refused."
+    ) in description
+
+
 def test_the_document_update_names_its_two_exceptions_to_sending_the_full_record():
     description = " ".join((documents.update_document.__doc__ or "").split())
 

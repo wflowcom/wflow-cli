@@ -94,8 +94,10 @@ async def get_document(client: WflowClient, organization: OrgSlug, documentId: s
       lines and in the footer, the payment method, the language and the template
 
     Already on the list summary, not new here: `serie` (also a resolved record, not a
-    string), `payment`, `series` (a deprecated code, distinct from `serie`), `source`
-    and `dataSource`.
+    string), `payment`, `series` (a deprecated code, distinct from `serie`), `source`,
+    `dataSource`, `buyerReference`, `removedBy` and `isBlockedByLimit`. A document with
+    `isBlockedByLimit` set can be read, deleted and have its payments set; every other change
+    is refused.
     """
     return Document.model_validate(
         await client.request("GET", f"/api/{organization}/documents/{path_segment(documentId)}") or {}
