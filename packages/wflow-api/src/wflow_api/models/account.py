@@ -46,7 +46,10 @@ class TeamBase(WflowModel):
 class DocumentTypeBase(WflowModel):
     id: str | None = None
     name: str | None = None
-    kind: str | None = Field(default=None, description="e.g. IncomingInvoice, Contract")
+    kind: str | None = Field(
+        default=None,
+        description="One of: IncomingInvoice, OutgoingInvoice, ExpenditureCashSlip, SupplierOrder, CustomerOrder, Other, Contract, IncomeCashReceipt",
+    )
     default: bool | None = None
 
 
