@@ -80,14 +80,16 @@ async def get_peppol_message_detail(client: WflowClient, organization: OrgSlug, 
     """One Peppol message with the document it carries, its attachments and its transport metadata.
 
     Needs inbox access, and the workspace must have Peppol enabled. Get the id from
-    `list_peppol_messages`. Only incoming messages carry a linked document and
+    `list_peppol_messages`. Only incoming messages carry the received invoice data and
     attachments: for an outgoing message the detail has no `document` and no
     `attachments`.
 
     Fields:
 
-    - `message` — the message itself, with the fields `list_peppol_messages` documents
-    - `document` — the wflow document made from the message, as `get_document` returns it
+    - `message` — the message itself, with the fields `list_peppol_messages` documents;
+      the linked wflow document's id is `message.document.id`
+    - `document` — the invoice data read from the received Peppol document, in the shape
+      `get_document` returns; it is not saved in wflow, so its `id` is empty
     - `attachments` — each with its `name` and `contentType`; pass the `name` to
       `download_peppol_message_attachment`
     - `metadata` — `documentIdentifier`, `documentFormat`, `processIdentifier` and `sentAt`
