@@ -130,7 +130,12 @@ async def list_document_events(client: WflowClient, organization: OrgSlug, docum
 
     Fields:
 
-    - `type` — e.g. Create, Update, Approved, Rejected, FileAdded, ChangedFlowStatus
+    - `type` — e.g. Create, Update, Approved, Rejected, FileAdded, ChangedFlowStatus. Among them:
+      `SentViaPeppol` — the document was queued for Peppol delivery and locked;
+      `PaymentsSynchronized` — a sync changed the document's payments, and `info` holds the
+      payment rows as they were before the change; `ApprovalsTakenOverFromOrder` — the invoice
+      was linked to an order automatically and copied the order's approval path;
+      `DeleteDocumentPaymentOrder` — a payment's payment-order step was removed
     - `identity` — who triggered the event, when known
     - `info` — free-text detail
     - `created` — when it happened

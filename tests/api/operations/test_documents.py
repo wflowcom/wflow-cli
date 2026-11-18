@@ -5,6 +5,7 @@ import pytest
 
 from tests.helpers import mock_wflow
 from wflow_api.errors import WflowApiError, WflowError
+from wflow_api.models.documents import DocumentEvent
 from wflow_api.models.requests import DocumentUpdate
 from wflow_api.operations import document_files, documents
 
@@ -552,3 +553,19 @@ async def test_a_document_wflow_does_not_know_is_an_api_error_naming_the_path():
         await documents.get_document(client, organization="acme", documentId="d-404")
 
     assert failed.value.status == 404
+
+
+NEW_EVENT_TYPES = ("SentViaPeppol", "PaymentsSynchronized", "ApprovalsTakenOverFromOrder", "DeleteDocumentPaymentOrder")
+
+
+def test_the_new_event_types_are_documented():
+    description = DocumentEvent.model_fields["type"].description or ""
+    listed = description.removeprefix("One of: ").split(", ")
+
+    assert all(event_type in listed for event_type in NEW_EVENT_TYPES)
+
+
+def test_the_event_list_explains_the_new_event_types():
+    description = " ".join((documents.list_document_events.__doc__ or "").split())
+
+    assert all(f"`{event_type}`" in description for event_type in NEW_EVENT_TYPES)
