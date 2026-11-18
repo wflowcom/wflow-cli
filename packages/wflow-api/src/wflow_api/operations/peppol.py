@@ -317,8 +317,8 @@ async def send_document_via_peppol(
     Sending locks the document, records a "sent via Peppol" event on it and runs the
     workspace's automations; the document's flow status becomes Sent later. A second send of
     the same document is refused unless every earlier outgoing message for it ended in Error
-    or RE. When the document fails Peppol validation, the failures come back grouped by
-    rule. Follow the delivery with `list_peppol_messages` and the `query`
+    or RE (Rejected). When the document fails Peppol validation, the failures come back
+    grouped by rule. Follow the delivery with `list_peppol_messages` and the `query`
     `document.id = "<id>"`.
 
     Fields: on the result —

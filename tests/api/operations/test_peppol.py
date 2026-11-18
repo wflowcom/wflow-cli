@@ -90,7 +90,18 @@ async def test_an_attachment_over_the_limit_is_refused():
         )
 
 
-@pytest.mark.parametrize("content,message", [(None, "no content"), ("not base64!", "base64")])
+async def test_an_attachment_exactly_at_the_limit_is_returned():
+    body = {"name": "a.pdf", "content": base64.b64encode(b"1234").decode()}
+    client, _ = mock_wflow({"/api/acme/peppol/messages/m-1/attachment": body})
+
+    result = await peppol.download_peppol_message_attachment(
+        client, organization="acme", id="m-1", name="a.pdf", max_bytes=4
+    )
+
+    assert result.content == b"1234"
+
+
+@pytest.mark.parametrize("content,message", [(None, "no content"), ("not base64!", "base64"), ("žluť", "base64")])
 async def test_an_unusable_attachment_body_is_an_error_not_an_empty_file(content, message):
     client, _ = mock_wflow({"/api/acme/peppol/messages/m-1/attachment": {"name": "a.pdf", "content": content}})
 
