@@ -653,8 +653,9 @@ async def export_documents(
 
     - excel — `{"includeItems": bool}`
     - isdoc — `{"format": "standalone"|"archive"|"zip", "excludeDocumentURL": bool}`
-    - moneys3 — `{"sequence": str}`
-    - moneyerp — `{"sequence": str, "cashSlipKind": "ProdejkaPrijata"|"PokladniDoklad"|"ZavazkovyDoklad"}`
+    - moneys3 — `{"sequence": str}`; `sequence` applies only to documents with no series of their own
+    - moneyerp — `{"cashSlipKind": "ProdejkaPrijata"|"PokladniDoklad"|"ZavazkovyDoklad"}`; `sequence` is accepted but
+      has no effect
     - datev — `{"exportTarget": "Automatic"|"Invoice"|"Ledger"}`
     - kros — `{"cashSlipType": "pd"|"id", "incomingInvoiceTarget": "inv"|"eud"}`, required for kros
     - generic — `{"definitionId": guid}`, required for generic, and definition ids are not

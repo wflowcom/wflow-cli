@@ -144,6 +144,9 @@ def test_the_export_description_states_what_marking_and_parameters_do():
     assert "required for kros" in doc
     assert "definition ids are not available through this API" in doc
     assert "Other formats ignore it" in doc
+    assert "`sequence` applies only to documents with no series of their own" in doc
+    assert '`{"cashSlipKind": "ProdejkaPrijata"|"PokladniDoklad"|"ZavazkovyDoklad"}`' in doc
+    assert "`sequence` is accepted but has no effect" in doc
 
 
 async def test_a_document_from_text_instead_of_bytes_sends_nothing():
