@@ -1,13 +1,16 @@
 """Peppol tag: the e-invoicing messages a workspace sends and receives over the Peppol network."""
 
 import base64
+from typing import Annotated
+
+from pydantic import Field
 
 from wflow_api.client import WflowClient
 from wflow_api.errors import WflowError
-from wflow_api.guards import path_segment, query_params
-from wflow_api.models import OrgSlug, Page, Paged, PageSize, Query, Search, Sort
+from wflow_api.guards import path_segment, query_params, write_json
+from wflow_api.models import OrgSlug, Page, Paged, PageSize, Query, Search, Sort, WriteResult
 from wflow_api.models.common import FileContent
-from wflow_api.models.peppol import Attachment, PeppolMessage, PeppolMessageDetail
+from wflow_api.models.peppol import Attachment, PeppolMessage, PeppolMessageDetail, PeppolMessageRejectRequest
 from wflow_api.operation import operation
 
 
@@ -125,3 +128,140 @@ async def download_peppol_message_attachment(
             f"The attachment {name!r} is {len(data)} bytes, over the {max_bytes}-byte limit set for this download."
         )
     return FileContent(filename=attachment.name or name, content_type=attachment.contentType, content=data)
+
+
+@operation
+async def accept_peppol_message(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
+    """Accept an incoming Peppol message: send the Accepted (AP) response to its sender.
+
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes
+    to the sender over the Peppol network, and the message's `status` changes to AP only
+    once the Peppol provider confirms it, so read the message again to see the result.
+    A sent response cannot be withdrawn. The same or another response may be sent later,
+    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
+    access, and the workspace must have Peppol enabled.
+
+    Fields: on the result —
+
+    - `action` — "accepted"
+    - `resource` — "peppol/messages"
+    """
+    await client.request("PUT", f"/api/{organization}/peppol/messages/{path_segment(id)}/accept")
+    return WriteResult(action="accepted", resource="peppol/messages")
+
+
+@operation
+async def accept_peppol_message_conditionally(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
+    """Accept an incoming Peppol message on conditions: send the Conditionally accepted (CA) response.
+
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes
+    to the sender over the Peppol network, and the message's `status` changes to CA only
+    once the Peppol provider confirms it, so read the message again to see the result.
+    A sent response cannot be withdrawn. The same or another response may be sent later,
+    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
+    access, and the workspace must have Peppol enabled.
+
+    Fields: on the result —
+
+    - `action` — "conditionally accepted"
+    - `resource` — "peppol/messages"
+    """
+    await client.request("PUT", f"/api/{organization}/peppol/messages/{path_segment(id)}/conditionallyaccept")
+    return WriteResult(action="conditionally accepted", resource="peppol/messages")
+
+
+@operation
+async def mark_peppol_message_under_query(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
+    """Put an incoming Peppol message under query: send the Under query (UQ) response to its sender.
+
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes
+    to the sender over the Peppol network, and the message's `status` changes to UQ only
+    once the Peppol provider confirms it, so read the message again to see the result.
+    A sent response cannot be withdrawn. The same or another response may be sent later,
+    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
+    access, and the workspace must have Peppol enabled.
+
+    Fields: on the result —
+
+    - `action` — "marked under query"
+    - `resource` — "peppol/messages"
+    """
+    await client.request("PUT", f"/api/{organization}/peppol/messages/{path_segment(id)}/underquery")
+    return WriteResult(action="marked under query", resource="peppol/messages")
+
+
+@operation
+async def mark_peppol_message_paid(client: WflowClient, organization: OrgSlug, id: str) -> WriteResult:
+    """Mark an incoming Peppol message paid: send the Paid (PD) response to its sender.
+
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes
+    to the sender over the Peppol network, and the message's `status` changes to PD only
+    once the Peppol provider confirms it, so read the message again to see the result.
+    A sent response cannot be withdrawn. The same or another response may be sent later,
+    but it follows this one rather than undoing it. The linked wflow document is not changed and records
+    no payment. Needs inbox access, and the workspace must have Peppol enabled.
+
+    Fields: on the result —
+
+    - `action` — "marked paid"
+    - `resource` — "peppol/messages"
+    """
+    await client.request("PUT", f"/api/{organization}/peppol/messages/{path_segment(id)}/paid")
+    return WriteResult(action="marked paid", resource="peppol/messages")
+
+
+@operation
+async def reject_peppol_message(
+    client: WflowClient,
+    organization: OrgSlug,
+    id: str,
+    reason: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="One of: NoIssue, ReferencesIncorrect, LegalInformationIncorrect, ReceiverUnknown, "
+            "ItemQualityInsufficient, DeliveryIssues, PricesIncorrect, QuantityIncorrect, ItemsIncorrect, "
+            "PaymentTermsIncorrect, NotRecognized, FinanceIncorrect, PartiallyPaid, Other. Omitted means NoIssue",
+        ),
+    ] = None,
+    requiredAction: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="One of: NoActionRequired, ProvideInformation, IssueNewInvoice, CreditFully, "
+            "CreditPartially, CreditTheAmount, Other. Omitted means NoActionRequired. Stored on the message "
+            "but never sent to the counterparty",
+        ),
+    ] = None,
+    note: Annotated[
+        str | None,
+        Field(default=None, description="Text sent to the counterparty with the rejection"),
+    ] = None,
+) -> WriteResult:
+    """Reject an incoming Peppol message: send the Rejected (RE) response to its sender.
+
+    For incoming messages only; get the id from `list_peppol_messages`. The response goes
+    to the sender over the Peppol network, and the message's `status` changes to RE only
+    once the Peppol provider confirms it, so read the message again to see the result.
+    A sent response cannot be withdrawn. The same or another response may be sent later,
+    but it follows this one rather than undoing it. The linked wflow document is not changed. Needs inbox
+    access and, separately, the right to reject Peppol messages; the workspace must have
+    Peppol enabled.
+
+    Every argument after `id` is optional. `reason` is sent to the counterparty; without
+    it the rejection says there is no issue (NoIssue). `note` is sent with it and is
+    stored as the message's `message` text. `requiredAction` is stored on the message as
+    `requiredAction`, defaulting to NoActionRequired, but it is never sent: the
+    counterparty does not see it, so put what they must do in `note`.
+
+    Fields: on the result —
+
+    - `action` — "rejected"
+    - `resource` — "peppol/messages"
+    """
+    await client.request(
+        "PUT",
+        f"/api/{organization}/peppol/messages/{path_segment(id)}/reject",
+        json=write_json(PeppolMessageRejectRequest(reason=reason, requiredAction=requiredAction, note=note)),
+    )
+    return WriteResult(action="rejected", resource="peppol/messages")

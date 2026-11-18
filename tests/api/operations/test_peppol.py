@@ -1,4 +1,5 @@
 import base64
+import json
 
 import pytest
 
@@ -95,3 +96,42 @@ async def test_an_unusable_attachment_body_is_an_error_not_an_empty_file(content
         await peppol.download_peppol_message_attachment(client, organization="acme", id="m-1", name="a.pdf")
 
     assert "'a.pdf'" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "name,segment,outcome",
+    [
+        ("accept_peppol_message", "accept", ("accepted", "peppol/messages")),
+        ("accept_peppol_message_conditionally", "conditionallyaccept", ("conditionally accepted", "peppol/messages")),
+        ("mark_peppol_message_under_query", "underquery", ("marked under query", "peppol/messages")),
+        ("mark_peppol_message_paid", "paid", ("marked paid", "peppol/messages")),
+    ],
+)
+async def test_each_response_puts_to_its_own_path_without_a_body(name, segment, outcome):
+    path = f"/api/acme/peppol/messages/m-1/{segment}"
+    client, requests = mock_wflow({path: None})
+
+    result = await getattr(peppol, name)(client, organization="acme", id="m-1")
+
+    assert (requests[0].method, requests[0].url.path) == ("PUT", path)
+    assert not requests[0].content
+    assert (result.action, result.resource) == outcome
+
+
+async def test_an_empty_reject_still_sends_a_json_object():
+    client, requests = mock_wflow({"/api/acme/peppol/messages/m-1/reject": None})
+
+    result = await peppol.reject_peppol_message(client, organization="acme", id="m-1")
+
+    assert requests[0].method == "PUT" and json.loads(requests[0].content) == {}
+    assert (result.action, result.resource) == ("rejected", "peppol/messages")
+
+
+async def test_a_reject_sends_only_what_was_given():
+    client, requests = mock_wflow({"/api/acme/peppol/messages/m-1/reject": None})
+
+    await peppol.reject_peppol_message(
+        client, organization="acme", id="m-1", reason="PricesIncorrect", note="Unit price differs"
+    )
+
+    assert json.loads(requests[0].content) == {"reason": "PricesIncorrect", "note": "Unit price differs"}
