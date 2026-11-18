@@ -4,6 +4,7 @@ import json
 import pytest
 
 from tests.helpers import mock_wflow
+from wflow_api.client import DOWNLOAD_TIMEOUT
 from wflow_api.errors import WflowError
 from wflow_api.models.common import FileContent
 from wflow_api.operations import peppol
@@ -76,6 +77,7 @@ async def test_an_attachment_comes_back_as_its_decoded_bytes():
 
     assert result == FileContent(filename="peppol-document.xml", content_type="application/xml", content=b"<Invoice/>")
     assert requests[0].url.params["name"] == "peppol-document.xml"
+    assert requests[0].extensions["timeout"]["read"] == DOWNLOAD_TIMEOUT
 
 
 async def test_an_attachment_over_the_limit_is_refused():

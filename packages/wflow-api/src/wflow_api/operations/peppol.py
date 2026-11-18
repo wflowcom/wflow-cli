@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from wflow_api.client import WflowClient
+from wflow_api.client import DOWNLOAD_TIMEOUT, WflowClient
 from wflow_api.errors import WflowError
 from wflow_api.guards import path_segment, query_params, write_json
 from wflow_api.models import OrgSlug, Page, Paged, PageSize, Query, Search, Sort, WriteResult
@@ -120,6 +120,7 @@ async def download_peppol_message_attachment(
         "GET",
         f"/api/{organization}/peppol/messages/{path_segment(id)}/attachment",
         params=query_params(name=name),
+        timeout=DOWNLOAD_TIMEOUT,
     )
     attachment = Attachment.model_validate(payload or {})
     if attachment.content is None:
@@ -304,7 +305,8 @@ async def send_document_via_peppol(
 
     Only `OutgoingInvoice` documents can be sent. The document needs a partner name, and the
     workspace needs a Peppol connection with its own Peppol id. `recipientPeppolId` is
-    required: wflow does not take it from the document's partner.
+    required: wflow does not take it from the document's partner. Needs the right to manage
+    documents, and the workspace must have Peppol enabled.
 
     wflow generates a UBL Invoice from the document's data, or a UBL CreditNote when the
     document's `invoiceType` is CreditNote. The document's main file or PDF is not sent
