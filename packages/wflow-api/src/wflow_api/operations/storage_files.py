@@ -292,7 +292,8 @@ async def restore_storage_file(client: WflowClient, organization: OrgSlug, fileI
 
     Removed files are not listed, so `fileId` must be the id noted before
     `delete_storage_file` was called. This puts the file back under
-    `folderId`, which need not be the folder it was removed from. Use
+    `folderId`, which need not be the folder it was removed from. Restore always
+    needs a target folder: it never falls back to the original folder. Use
     `list_storage_folder_children` to find that id.
 
     Fields: on the result —
@@ -410,22 +411,19 @@ async def update_storage_file_property_definition(
     GUID wflow mints; a definition sent without one creates nothing. wflow keeps at most
     30 characters of the id and drops dashes, so a GUID comes back changed — pick a short
     plain id. The submitted object replaces the stored definition, so a field you
-    leave out can be cleared, and `kinds` and `data` are whole lists — omit a document
-    kind and the property stops applying there, omit a choice from `data` and it can no
-    longer be picked. `get_storage_file_property_definition` returns the definition in
-    full; read it first when changing one that exists.
+    leave out can be cleared. `get_storage_file_property_definition` returns the
+    definition in full; read it first when changing one that exists.
 
-    **Neither `type` nor `kinds` is reliably stored.** A definition sent with
-    `type: "Text"` and `kinds: ["Other"]` can be accepted as a success and read back as
-    `type: "UNDEFINED"` and `kinds: null`. Read the definition back and check what landed
-    rather than trusting the write.
+    **`kinds` and `data` are never stored** for archived-file definitions, whatever you
+    send, so a `LIST` cannot carry its choices. `type` is kept only when it is one of
+    `BOOL`, `STRING`, `NUMERIC`, `DATETIME`, `LINK`, `LIST` (case-insensitive);
+    anything else is stored as `UNDEFINED`.
 
     Fields: on the result —
 
     - `action` — "updated"
     - `resource` — "storage/files/properties/definition"
-    - `id` — the definition's id when wflow echoes the stored definition, otherwise `null`;
-      fall back to the `id` you sent
+    - `id` — always `null`; fall back to the `id` you sent
     """
     stored = await client.request(
         "PUT",
