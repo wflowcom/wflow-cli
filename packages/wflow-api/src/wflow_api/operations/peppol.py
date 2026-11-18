@@ -10,7 +10,14 @@ from wflow_api.errors import WflowError
 from wflow_api.guards import path_segment, query_params, write_json
 from wflow_api.models import OrgSlug, Page, Paged, PageSize, Query, Search, Sort, WriteResult
 from wflow_api.models.common import FileContent
-from wflow_api.models.peppol import Attachment, PeppolMessage, PeppolMessageDetail, PeppolMessageRejectRequest
+from wflow_api.models.peppol import (
+    Attachment,
+    PeppolMessage,
+    PeppolMessageDetail,
+    PeppolMessageRejectRequest,
+    SendDocumentViaPeppolRequest,
+    SendDocumentViaPeppolRequestAttachment,
+)
 from wflow_api.operation import operation
 
 
@@ -265,3 +272,68 @@ async def reject_peppol_message(
         json=write_json(PeppolMessageRejectRequest(reason=reason, requiredAction=requiredAction, note=note)),
     )
     return WriteResult(action="rejected", resource="peppol/messages")
+
+
+@operation
+async def send_document_via_peppol(
+    client: WflowClient,
+    organization: OrgSlug,
+    documentId: str,
+    recipientPeppolId: Annotated[
+        str,
+        Field(
+            min_length=1,
+            description='The recipient\'s Peppol id as scheme:value, e.g. "9915:cz12345678"; the '
+            "iso6523-actorid-upis:: prefix is also accepted",
+        ),
+    ],
+    note: Annotated[
+        str | None,
+        Field(default=None, description="Text sent to the recipient, joined with the document's description"),
+    ] = None,
+    attachments: Annotated[
+        list[str] | None,
+        Field(
+            default=None,
+            description="Ids of the document's own files, from list_document_files, to send with it. The "
+            "main file is sent only if its id is listed",
+        ),
+    ] = None,
+) -> WriteResult:
+    """Send an outgoing invoice to its recipient over the Peppol network.
+
+    Only `OutgoingInvoice` documents can be sent. The document needs a partner name, and the
+    workspace needs a Peppol connection with its own Peppol id. `recipientPeppolId` is
+    required: wflow does not take it from the document's partner.
+
+    wflow generates a UBL Invoice from the document's data, or a UBL CreditNote when the
+    document's `invoiceType` is CreditNote. The document's main file or PDF is not sent
+    unless its id is in `attachments`; attachments are the document's own file ids from
+    `list_document_files`. `note` goes to the recipient, joined with the document's
+    description.
+
+    Sending locks the document, records a "sent via Peppol" event on it and runs the
+    workspace's automations; the document's flow status becomes Sent later. A second send of
+    the same document is refused unless every earlier outgoing message for it ended in Error
+    or RE. When the document fails Peppol validation, the failures come back grouped by
+    rule. Follow the delivery with `list_peppol_messages` and the `query`
+    `document.id = "<id>"`.
+
+    Fields: on the result —
+
+    - `action` — "queued"
+    - `resource` — "documents/peppol"
+    """
+    body = SendDocumentViaPeppolRequest(
+        recipientPeppolId=recipientPeppolId,
+        note=note,
+        attachments=None
+        if attachments is None
+        else [SendDocumentViaPeppolRequestAttachment(fileId=i) for i in attachments],
+    )
+    await client.request(
+        "POST",
+        f"/api/{organization}/documents/{path_segment(documentId)}/peppol/send",
+        json=write_json(body),
+    )
+    return WriteResult(action="queued", resource="documents/peppol")

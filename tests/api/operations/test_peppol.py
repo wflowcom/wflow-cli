@@ -144,3 +144,44 @@ async def test_a_reject_sends_only_what_was_given():
         "requiredAction": "CreditFully",
         "note": "Unit price differs",
     }
+
+
+async def test_sending_queues_the_document_with_its_attachments_as_file_ids():
+    path = "/api/acme/documents/d-1/peppol/send"
+    client, requests = mock_wflow({path: None})
+
+    result = await peppol.send_document_via_peppol(
+        client,
+        organization="acme",
+        documentId="d-1",
+        recipientPeppolId="9915:cz12345678",
+        note="Order 42",
+        attachments=["f-1", "f-2"],
+    )
+
+    assert (requests[0].method, requests[0].url.path) == ("POST", path)
+    assert json.loads(requests[0].content) == {
+        "recipientPeppolId": "9915:cz12345678",
+        "note": "Order 42",
+        "attachments": [{"fileId": "f-1"}, {"fileId": "f-2"}],
+    }
+    assert (result.action, result.resource) == ("queued", "documents/peppol")
+
+
+async def test_sending_without_attachments_names_only_the_recipient():
+    client, requests = mock_wflow({"/api/acme/documents/d-1/peppol/send": None})
+
+    await peppol.send_document_via_peppol(
+        client, organization="acme", documentId="d-1", recipientPeppolId="9915:cz12345678"
+    )
+
+    assert json.loads(requests[0].content) == {"recipientPeppolId": "9915:cz12345678"}
+
+
+async def test_sending_to_an_empty_recipient_sends_nothing():
+    client, requests = mock_wflow({"/api/acme/documents/d-1/peppol/send": None})
+
+    with pytest.raises(WflowError, match=r"^send_document_via_peppol: invalid arguments\. recipientPeppolId"):
+        await peppol.send_document_via_peppol(client, organization="acme", documentId="d-1", recipientPeppolId="")
+
+    assert requests == []
