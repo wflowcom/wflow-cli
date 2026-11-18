@@ -7,7 +7,7 @@ import pytest
 
 from tests.helpers import body_source
 from wflow_api.client import WflowClient
-from wflow_api.models.common import FileContent, OrgSlug, Paged, WflowModel, WriteResult
+from wflow_api.models.common import FileContent, OrgSlug, Paged, UploadFiles, WflowModel, WriteResult
 from wflow_api.operations import operations
 
 SCALAR_RETURNS = {
@@ -20,6 +20,9 @@ SCALAR_RETURNS = {
 ENTITY_RETURNS = {
     "export_documents": "the export is a file, and FileContent is the one shape every file here has",
     "create_api_client": "the client secret is shown once, and WriteResult has nowhere to carry it",
+    "create_document_with_files": (
+        "wflow returns the new document's id and, when it moved the document, the workspace it moved to"
+    ),
 }
 NAME_PREFIXES = (
     "list_",
@@ -61,7 +64,8 @@ MCP_ONLY = (
 UNENCODED_PLACEHOLDERS = {
     "str(value).lower()": "lock_* sends a bool as true/false, which can never carry a slash or a dot",
 }
-UPLOADS = {"upload_document_file", "create_document_with_files", "upload_storage_file"}
+UPLOADS = {"upload_document_file", "upload_storage_file"}
+MULTI_FILE_UPLOADS = {"create_document_with_files"}
 DOWNLOADS = {
     "download_document_main_file",
     "download_document_file",
@@ -216,6 +220,15 @@ def test_every_upload_takes_a_filename_and_bytes(ops):
         parameters = inspect.signature(ops[name]).parameters
         assert parameters["content"].annotation is bytes, f"{name} does not take content as bytes"
         assert parameters["filename"].annotation is str, f"{name} does not take filename as str"
+
+
+def test_the_multi_file_upload_takes_upload_files(ops):
+    uploads = {name for name, fn in ops.items() if "files" in inspect.signature(fn).parameters}
+
+    assert uploads == MULTI_FILE_UPLOADS
+    for name in uploads:
+        hint = typing.get_type_hints(inspect.unwrap(ops[name]), include_extras=True)["files"]
+        assert hint == UploadFiles, f"{name} annotates files as {hint!r}, not UploadFiles"
 
 
 def test_every_download_returns_a_file_and_caps_it_by_keyword(ops):

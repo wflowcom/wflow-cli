@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, WithJsonSchema, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, Strict, WithJsonSchema, field_validator
 
 
 class WflowModel(BaseModel):
@@ -93,6 +93,13 @@ Query = Annotated[
 ]
 PageSize = Annotated[int | None, Field(default=None, description="Records per page")]
 Page = Annotated[int | None, Field(default=None, description="Page number, zero-based")]
+UploadFiles = Annotated[
+    list[tuple[str, Annotated[bytes, Strict()]]],
+    Field(
+        min_length=1,
+        description="Files as (filename, bytes) pairs, in order: the first becomes the main file, the rest attachments",
+    ),
+]
 
 
 class WriteResult(WflowModel):

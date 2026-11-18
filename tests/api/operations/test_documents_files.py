@@ -1,5 +1,6 @@
 import inspect
 import json
+import re
 
 import pytest
 
@@ -22,30 +23,52 @@ def test_a_structured_filter_is_accepted():
     }
 
 
-async def test_creating_a_document_with_files_uses_the_part_name_the_spec_declares():
-    client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
+async def test_several_files_go_as_uploaded_files_parts_in_order():
+    client, requests = mock_wflow({"/api/acme/documents/withfiles": {"documentId": "d-9", "newOrganization": None}})
 
     result = await documents.create_document_with_files(
-        client, organization="acme", filename="invoice.pdf", content=b"%PDF-1.7", typeId="t-1", invoiceType="TaxInvoice"
+        client,
+        organization="acme",
+        files=[("invoice.pdf", b"%PDF-main"), ("annex.pdf", b"%PDF-annex")],
+        typeId="t-1",
+        invoiceType="TaxInvoice",
     )
 
     sent = requests[0]
+    body = sent.content
     assert sent.method == "POST"
-    assert b'name="uploadedFiles"; filename="invoice.pdf"' in sent.content
-    assert b"%PDF-1.7" in sent.content
+    assert body.count(b'name="uploadedFiles"') == 2
+    assert body.index(b'filename="invoice.pdf"') < body.index(b'filename="annex.pdf"')
+    assert body.index(b"%PDF-main") < body.index(b"%PDF-annex")
     assert sent.url.params["typeId"] == "t-1"
     assert sent.url.params["invoiceType"] == "TaxInvoice"
-    assert (result.action, result.resource, result.id) == ("created", "documents/withfiles", None)
+    assert (result.documentId, result.newOrganization) == ("d-9", None)
+
+
+async def test_a_document_moved_to_another_workspace_names_it():
+    client, _ = mock_wflow({"/api/acme/documents/withfiles": {"documentId": "d-9", "newOrganization": "acme-sk"}})
+
+    result = await documents.create_document_with_files(client, organization="acme", files=[("invoice.pdf", b"%PDF")])
+
+    assert (result.documentId, result.newOrganization) == ("d-9", "acme-sk")
 
 
 async def test_a_document_from_a_zero_byte_file_is_sent_as_wflow_would_receive_any_other():
-    client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
+    client, requests = mock_wflow({"/api/acme/documents/withfiles": {"documentId": "d-9"}})
 
-    result = await documents.create_document_with_files(client, organization="acme", filename="blank.pdf", content=b"")
+    result = await documents.create_document_with_files(client, organization="acme", files=[("blank.pdf", b"")])
 
     assert len(requests) == 1
     assert b'name="uploadedFiles"; filename="blank.pdf"' in requests[0].content
-    assert (result.action, result.resource, result.id) == ("created", "documents/withfiles", None)
+    assert result.documentId == "d-9"
+
+
+async def test_an_empty_answer_is_a_result_with_nothing_set():
+    client, _ = mock_wflow({"/api/acme/documents/withfiles": None})
+
+    result = await documents.create_document_with_files(client, organization="acme", files=[("a.pdf", b"%PDF")])
+
+    assert (result.documentId, result.newOrganization) == (None, None)
 
 
 async def test_an_export_streams_back_as_the_files_own_bytes():
@@ -149,10 +172,11 @@ def test_the_export_description_states_what_marking_and_parameters_do():
     assert "`sequence` is accepted but has no effect" in doc
 
 
-async def test_a_document_from_text_instead_of_bytes_sends_nothing():
+@pytest.mark.parametrize("files,problem", [([], "files"), ([("a.pdf", "text")], "files.0.1")])
+async def test_no_files_or_text_instead_of_bytes_sends_nothing(files, problem):
     client, requests = mock_wflow({"/api/acme/documents/withfiles": None})
 
-    with pytest.raises(WflowError, match=r"^create_document_with_files: invalid arguments\. content: "):
-        await documents.create_document_with_files(client, organization="acme", filename="a.pdf", content="a.pdf")
+    with pytest.raises(WflowError, match=rf"^create_document_with_files: invalid arguments\. {re.escape(problem)}: "):
+        await documents.create_document_with_files(client, organization="acme", files=files)
 
     assert requests == []

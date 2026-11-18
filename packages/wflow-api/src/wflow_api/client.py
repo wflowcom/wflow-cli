@@ -81,8 +81,22 @@ class WflowClient:
         params: dict[str, object] | None = None,
         field: str = "file",
     ) -> Any:
+        return await self.upload_files(method, path, [(filename, content)], params, field)
+
+    async def upload_files(
+        self,
+        method: str,
+        path: str,
+        files: list[tuple[str, bytes]],
+        params: dict[str, object] | None = None,
+        field: str = "file",
+    ) -> Any:
         return await self.request(
-            method, path, params=params or {}, files={field: (filename, content)}, timeout=UPLOAD_TIMEOUT
+            method,
+            path,
+            params=params or {},
+            files=[(field, (name, content)) for name, content in files],
+            timeout=UPLOAD_TIMEOUT,
         )
 
     async def download(

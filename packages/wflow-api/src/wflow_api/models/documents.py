@@ -562,3 +562,8 @@ class ApprovalProcess(WflowModel):
 
     pathName: str | None = Field(default=None, description="Path name")
     items: list[ApprovalProcessItem] | None = Field(default=None, description="Approval process item collection")
+
+
+class CreateDocumentWithFilesResult(WflowModel):
+    documentId: str | None = None
+    newOrganization: str | None = None

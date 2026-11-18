@@ -21,9 +21,10 @@ from wflow_api.models import (
     TeamBase,
     WriteResult,
 )
-from wflow_api.models.common import FileContent
+from wflow_api.models.common import FileContent, UploadFiles
 from wflow_api.models.documents import (
     Comment,
+    CreateDocumentWithFilesResult,
     Document,
     DocumentBase,
     DocumentEvent,
@@ -583,38 +584,48 @@ async def set_document_rights(
 async def create_document_with_files(
     client: WflowClient,
     organization: OrgSlug,
-    filename: str,
-    content: bytes,
+    files: UploadFiles,
     typeId: Annotated[str | None, Field(default=None, description="Document type to file it under")] = None,
     invoiceType: Annotated[
         str | None,
         Field(default=None, description="TaxInvoice, CreditNote, DebitNote, Proforma or TaxInvoicePayment"),
     ] = None,
-) -> WriteResult:
-    """Create a document from a file: its bytes, and the `filename` wflow should store it under.
+) -> CreateDocumentWithFilesResult:
+    """Create one document from one or more files, each sent as its bytes and the filename wflow should store it under.
 
     This is how a scan becomes a document: wflow files it under `typeId`, which
-    `list_document_types` names, and reads what it can out of the file itself — an ISDOC,
-    or the QR receipt on a Slovak one — into the new document's fields. It sends one file
-    per call and hands back no document id, so to attach anything further, find the new
-    document with `list_documents` — `sort` of "created desc" puts it first — and pass its
-    id to `upload_document_file`. A refusal for lack of access to the document type means
-    the caller is not in that type's `users`, which `get_document_type` lists.
+    `list_document_types` names. The first file becomes the document's main file and the
+    rest its attachments, unless an e-invoice (ISDOCX, UBL or ZUGFeRD) carries an embedded
+    main file, which then takes over; an ISDOC sent without a PDF gets one generated. wflow
+    reads what it can out of all the files, such as an ISDOC or the QR receipt on a Slovak
+    one, into the new document's fields. Each file can be at most 10 MB.
+
+    When wflow recognises the buyer as another workspace of the same customer, it moves the
+    new document there and returns that workspace's slug as `newOrganization`; use that
+    slug, not `organization`, for every follow-up call on the document.
+
+    The call is not all-or-nothing. Only a file that fails to upload discards the new
+    document; any other failure, such as while saving the fields read from the files or
+    moving the document to another workspace, or a timeout on your side, can leave the
+    document created. Before retrying a failed call, check `list_documents` for
+    the document (`sort` of "created desc" puts the newest first), or a retry can create
+    a duplicate. A refusal for lack of access to the document type means the caller is
+    not in that type's `users`, which `get_document_type` lists.
 
     Fields: on the result —
 
-    - `action` — "created"
-    - `resource` — "documents/withfiles"
+    - `documentId` — the new document's id
+    - `newOrganization` — the slug of the workspace wflow moved the document to, or null
+      when it stayed in `organization`
     """
-    await client.upload(
+    payload = await client.upload_files(
         "POST",
         f"/api/{organization}/documents/withfiles",
-        filename,
-        content,
+        files,
         params=query_params(typeId=typeId, invoiceType=invoiceType),
         field="uploadedFiles",
     )
-    return WriteResult(action="created", resource="documents/withfiles")
+    return CreateDocumentWithFilesResult.model_validate(payload or {})
 
 
 @operation
