@@ -389,15 +389,30 @@ async def create_document_task(client: WflowClient, organization: OrgSlug, docum
 
 @operation
 async def set_document_task_processed(
-    client: WflowClient, organization: OrgSlug, documentId: str, taskType: str, success: bool
+    client: WflowClient,
+    organization: OrgSlug,
+    documentId: str,
+    taskType: str,
+    success: Annotated[
+        bool | None, Field(default=None, description="Leave out for true; false marks the work as failed")
+    ] = None,
+    message: Annotated[
+        str | None, Field(default=None, description="A note stored on the task, shown in the document's events")
+    ] = None,
 ) -> WriteResult:
     """Record that a document task has been dealt with, and whether it worked.
 
     This is the other half of `create_document_task`: `taskType` is "Extract" or
-    "Export", and `success` false records a failed attempt rather than leaving the
-    document queued. Send it from whatever performed the work. Closing an Export task
-    with `success` true moves the document on in its workflow (e.g. from SentToReview to
-    SentToERP), which is permanent: nothing moves it back.
+    "Export". Send it from whatever performed the work. The call fails if the document
+    has no open task of that type.
+
+    `success` defaults to true when left out; `success` false marks the extraction or
+    export as failed rather than leaving the document queued. `message` is optional: it is
+    stored on the task and appears in the document's events — `list_document_events`
+    shows it as the `info` of the TaskProcessed event — so use it to say what went wrong
+    or what was done. Closing an Export task with `success` true moves the document on in
+    its workflow (e.g. from SentToReview to SentToERP), which is permanent: nothing moves
+    it back.
 
     Fields: on the result —
 
@@ -407,7 +422,7 @@ async def set_document_task_processed(
     await client.request(
         "PUT",
         f"/api/{organization}/documents/{path_segment(documentId)}/task/{path_segment(taskType)}/processed",
-        params=query_params(success=success),
+        params=query_params(success=success, message=message),
     )
     return WriteResult(action="processed", resource="documents/task")
 
