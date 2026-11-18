@@ -86,13 +86,18 @@ class WflowClient:
         )
 
     async def download(
-        self, path: str, method: str = "GET", json: Any = None, max_bytes: int | None = None
+        self,
+        path: str,
+        method: str = "GET",
+        json: Any = None,
+        max_bytes: int | None = None,
+        params: dict[str, Any] | None = None,
     ) -> FileContent:
         headers = await self._signed()
         try:
             async with (
                 self._http(DOWNLOAD_TIMEOUT) as http,
-                http.stream(method, path, headers=headers, json=json) as response,
+                http.stream(method, path, headers=headers, json=json, params=params) as response,
             ):
                 if response.is_error:
                     await response.aread()

@@ -608,6 +608,14 @@ async def export_documents(
     organization: OrgSlug,
     format: str,
     filter: StructuredFilter,
+    markAsExported: Annotated[
+        bool | None,
+        Field(default=None, description="Mark each exported document as sent to your ERP and lock it"),
+    ] = None,
+    parameters: Annotated[
+        str | None,
+        Field(default=None, description="Format-specific settings as a JSON string; required for kros and generic"),
+    ] = None,
     *,
     max_bytes: int | None = None,
 ) -> FileContent:
@@ -619,6 +627,25 @@ async def export_documents(
     custom property, `search` as free text — and **`sort` is required**: pass something
     like "number asc", because wflow fails the export without it, an empty `filter`
     object included. The other three are optional and default to no restriction.
+
+    `markAsExported` true changes the exported documents, not just the file: each one's
+    pending export task is marked done, its status becomes sent-to-ERP and **the document
+    is locked**, so it drops out of `list_documents_to_export`. Documents in the export
+    with no pending export task are skipped silently.
+
+    `parameters` is a JSON string of settings for the chosen format, with camelCase keys
+    and enum values given by name:
+
+    - excel — `{"includeItems": bool}`
+    - isdoc — `{"format": "standalone"|"archive"|"zip", "excludeDocumentURL": bool}`
+    - moneys3 — `{"sequence": str}`
+    - moneyerp — `{"sequence": str, "cashSlipKind": "ProdejkaPrijata"|"PokladniDoklad"|"ZavazkovyDoklad"}`
+    - datev — `{"exportTarget": "Automatic"|"Invoice"|"Ledger"}`
+    - kros — `{"cashSlipType": "pd"|"id", "incomingInvoiceTarget": "inv"|"eud"}`, required for kros
+    - generic — `{"definitionId": guid}`, required for generic, and definition ids are not
+      available through this API
+
+    Other formats ignore it.
 
     wflow streams the export file itself, whatever the format, and it comes back as its own
     bytes. With `max_bytes` set, a larger export is refused rather than truncated.
@@ -634,4 +661,5 @@ async def export_documents(
         "POST",
         json=write_json(filter.with_empty_restrictions()),
         max_bytes=max_bytes,
+        params=query_params(markAsExported=markAsExported, parameters=parameters),
     )

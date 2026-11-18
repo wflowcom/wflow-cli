@@ -1,3 +1,4 @@
+import inspect
 import json
 
 import pytest
@@ -109,6 +110,40 @@ async def test_an_export_over_the_limit_is_refused():
         await documents.export_documents(
             client, organization="acme", format="excel", filter={"sort": "number asc"}, max_bytes=32
         )
+
+
+async def test_an_export_without_the_new_arguments_sends_no_query_parameters():
+    client, requests = mock_download(b"x")
+
+    await documents.export_documents(client, organization="acme", format="excel", filter={"sort": "number asc"})
+
+    assert not requests[0].url.params
+
+
+async def test_an_export_forwards_mark_as_exported_and_parameters_verbatim():
+    client, requests = mock_download(b"x")
+
+    await documents.export_documents(
+        client,
+        organization="acme",
+        format="kros",
+        filter={"sort": "number asc"},
+        markAsExported=True,
+        parameters='{"cashSlipType": "pd", "incomingInvoiceTarget": "inv"}',
+    )
+
+    assert requests[0].url.params["markAsExported"] == "true"
+    assert requests[0].url.params["parameters"] == '{"cashSlipType": "pd", "incomingInvoiceTarget": "inv"}'
+
+
+def test_the_export_description_states_what_marking_and_parameters_do():
+    doc = " ".join(inspect.getdoc(documents.export_documents).split())
+
+    assert "the document is locked" in doc
+    assert "skipped silently" in doc
+    assert "required for kros" in doc
+    assert "definition ids are not available through this API" in doc
+    assert "Other formats ignore it" in doc
 
 
 async def test_a_document_from_text_instead_of_bytes_sends_nothing():
