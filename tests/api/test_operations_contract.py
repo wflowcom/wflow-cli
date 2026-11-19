@@ -41,6 +41,10 @@ NAME_PREFIXES = (
     "link_",
     "unlink_",
     "allow_",
+    "accept_",
+    "mark_",
+    "reject_",
+    "send_",
 )
 READ_PREFIXES = ("list_", "get_", "download_")
 WRITE_PREFIXES = tuple(prefix for prefix in NAME_PREFIXES if prefix not in READ_PREFIXES)
@@ -58,7 +62,13 @@ UNENCODED_PLACEHOLDERS = {
     "str(value).lower()": "lock_* sends a bool as true/false, which can never carry a slash or a dot",
 }
 UPLOADS = {"upload_document_file", "create_document_with_files", "upload_storage_file"}
-DOWNLOADS = {"download_document_main_file", "download_document_file", "download_storage_file", "export_documents"}
+DOWNLOADS = {
+    "download_document_main_file",
+    "download_document_file",
+    "download_storage_file",
+    "export_documents",
+    "download_peppol_message_attachment",
+}
 MCP_TERMS = re.compile(r"\btools?\b|MCP|reconnect|input schema", re.IGNORECASE)
 
 

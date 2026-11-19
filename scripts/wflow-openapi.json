@@ -5136,6 +5136,156 @@
                 ]
             }
         },
+        "/api/{organization}/documents/{documentId}/peppol/send": {
+            "post": {
+                "tags": [
+                    "Documents"
+                ],
+                "summary": "Send via Peppol",
+                "description": "Sends the outgoing invoice with the given Id over the Peppol network. The document is validated, converted to UBL and queued;\r\nthe network delivery happens asynchronously and its result is visible on the document's Peppol messages.\r\nRequires the organization's Peppol connection to be registered.",
+                "operationId": "Documents_POST_SendDocumentViaPeppol",
+                "parameters": [
+                    {
+                        "name": "documentId",
+                        "in": "path",
+                        "description": "Document Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Recipient Peppol id (scheme:value, e.g. 9915:cz12345678), an optional note and optional document file Ids to attach",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendDocumentViaPeppolRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendDocumentViaPeppolRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendDocumentViaPeppolRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The document was queued for sending"
+                    },
+                    "400": {
+                        "description": "Invalid recipient Peppol id, the document is not an outgoing invoice, a required value is missing, a requested attachment is not a file of the document, or the Peppol connection is missing or not registered",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "402": {
+                        "description": "The document is blocked by the subscription limit"
+                    },
+                    "403": {
+                        "description": "The caller lacks CanManageDocument, or the peppol feature flag is off for the organization"
+                    },
+                    "404": {
+                        "description": "The document does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The document has already been sent via Peppol",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The generated UBL failed validation; the errors are listed per rule id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
         "/api/{organization}/documents/{documentId}/tags": {
             "get": {
                 "tags": [
@@ -6480,6 +6630,939 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages": {
+            "get": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Get Peppol messages",
+                "description": "Returns the organization's incoming and outgoing Peppol messages, archived ones included.\r\nFulltext searches the sender and receiver name; filterable by `id`, `document.id` and `status`.\r\nThe messages of one document are the filter `document.id`.",
+                "operationId": "Peppol_GET_GetMessages",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort (comma-separated list of sort keys with the 'asc' or 'desc' modifier).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "query",
+                        "in": "query",
+                        "description": "Query (expression or a set of expressions that is used to define a condition for filtering/searching required items).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "description": "Size of the page (The number of records that you would like to get in the response per page).",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number (zero-based) (The specific page that you would like to view from all the pages containing response records).",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Peppol messages",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageCollection"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageCollection"
+                                }
+                            },
+                            "application/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageCollection"
+                                }
+                            },
+                            "text/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageCollection"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "If the mandatory parameters are not filled in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/detail": {
+            "get": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Get Peppol message detail",
+                "description": "Returns the message with the document read from its UBL, the metadata and the attachments, the UBL XML (`peppol-document.xml`) included.\r\nAttachment contents are not part of the response; download them with the attachment endpoint.",
+                "operationId": "Peppol_GET_GetMessageDetail",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Peppol message detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageDetail"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageDetail"
+                                }
+                            },
+                            "application/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageDetail"
+                                }
+                            },
+                            "text/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PeppolMessageDetail"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/attachment": {
+            "get": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Get Peppol message attachment",
+                "description": "Returns one attachment of the message by its name, as listed in the message detail. `peppol-document.xml` is the UBL XML.",
+                "operationId": "Peppol_GET_GetAttachment",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "Attachment name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The attachment",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Attachment"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Attachment"
+                                }
+                            },
+                            "application/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Attachment"
+                                }
+                            },
+                            "text/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Attachment"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message or the attachment does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/reject": {
+            "put": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Reject Peppol message",
+                "description": "Sends the Rejected (RE) response for a received message to the sender.",
+                "operationId": "Peppol_PUT_RejectMessage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Reject reason, required action and note",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PeppolMessageRejectRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PeppolMessageRejectRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PeppolMessageRejectRequest"
+                            }
+                        },
+                        "application/xml": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PeppolMessageRejectRequest"
+                            }
+                        },
+                        "text/xml": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PeppolMessageRejectRequest"
+                            }
+                        },
+                        "application/*+xml": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PeppolMessageRejectRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "The response was sent"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "402": {
+                        "description": "The linked document is blocked by the subscription limit"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/accept": {
+            "put": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Accept Peppol message",
+                "description": "Sends the Accepted (AP) response for a received message to the sender.",
+                "operationId": "Peppol_PUT_AcceptMessage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The response was sent"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "402": {
+                        "description": "The linked document is blocked by the subscription limit"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/conditionallyaccept": {
+            "put": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Conditionally accept Peppol message",
+                "description": "Sends the Conditionally accepted (CA) response for a received message to the sender.",
+                "operationId": "Peppol_PUT_ConditionallyAcceptMessage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The response was sent"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "402": {
+                        "description": "The linked document is blocked by the subscription limit"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/underquery": {
+            "put": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Mark Peppol message under query",
+                "description": "Sends the Under query (UQ) response for a received message to the sender.",
+                "operationId": "Peppol_PUT_UnderQueryMessage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The response was sent"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "402": {
+                        "description": "The linked document is blocked by the subscription limit"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message does not exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "oauth2Implicit": [
+                            "uccl_common_api"
+                        ],
+                        "oauth2Client": [
+                            "uccl_common_api"
+                        ]
+                    }
+                ]
+            }
+        },
+        "/api/{organization}/peppol/messages/{id}/paid": {
+            "put": {
+                "tags": [
+                    "Peppol"
+                ],
+                "summary": "Mark Peppol message paid",
+                "description": "Sends the Paid (PD) response for a received message to the sender.",
+                "operationId": "Peppol_PUT_PaidMessage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Peppol message Id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "description": "Organization workspace name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The response was sent"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "402": {
+                        "description": "The linked document is blocked by the subscription limit"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "The message does not exist",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -13134,7 +14217,7 @@
                     "Registers"
                 ],
                 "summary": "Update Partners",
-                "description": "Adds or updates the Partners register entries. The whole set is always updated; entries that are not in the imported list are marked as invalid. The PeppolIds property is optional: when it is omitted or null, the partner's existing Peppol IDs are left unchanged. When it is provided, the collection is synchronized to match the sent list — new entries are added and missing ones are deleted. Sending an empty collection therefore deletes all existing Peppol IDs of the partner.",
+                "description": "Adds or updates the Partners register entries. The whole set is always updated; entries that are not in the imported list are marked as invalid. The PeppolIds property is optional: when it is omitted or null, the partner's existing Peppol IDs are left unchanged. When it is provided, the collection is synchronized to match the sent list — new entries are added and missing ones are deleted. Sending an empty collection therefore deletes all existing Peppol IDs of the partner. The BuyerReference property follows the same rule: when it is omitted or null, the partner's existing buyer reference is left unchanged; an empty string clears it.",
                 "operationId": "Registers_PUT_UpdatePartners",
                 "parameters": [
                     {
@@ -13248,7 +14331,7 @@
                     "Registers"
                 ],
                 "summary": "Patch Partners",
-                "description": "Adds or updates the Partners register entries. Unlike the PUT method, the whole set is not updated — only the items from the request payload are processed and other records remain unchanged. The PeppolIds property is optional: when it is omitted or null, the partner's existing Peppol IDs are left unchanged. When it is provided, the collection is synchronized to match the sent list — new entries are added and missing ones are deleted. Sending an empty collection therefore deletes all existing Peppol IDs of the partner.",
+                "description": "Adds or updates the Partners register entries. Unlike the PUT method, the whole set is not updated — only the items from the request payload are processed and other records remain unchanged. The PeppolIds property is optional: when it is omitted or null, the partner's existing Peppol IDs are left unchanged. When it is provided, the collection is synchronized to match the sent list — new entries are added and missing ones are deleted. Sending an empty collection therefore deletes all existing Peppol IDs of the partner. The BuyerReference property follows the same rule: when it is omitted or null, the partner's existing buyer reference is left unchanged; an empty string clears it.",
                 "operationId": "Registers_PATCH_PatchPartners",
                 "parameters": [
                     {
@@ -22015,6 +23098,28 @@
                 "additionalProperties": false,
                 "description": "Approvals templates team"
             },
+            "Attachment": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "Gets or sets the attachment content.",
+                        "nullable": true
+                    },
+                    "contentType": {
+                        "type": "string",
+                        "description": "Gets or sets the MIME content type.",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Gets or sets the attachment file name.",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Represents a PEPPOL message attachment."
+            },
             "AuthenticationPolicy": {
                 "enum": [
                     "MultiFactor",
@@ -22390,17 +23495,17 @@
                     },
                     "partnerIC": {
                         "type": "string",
-                        "description": "Partner ID",
+                        "description": "Partner tax ID. (max 20 characters)",
                         "nullable": true
                     },
                     "partnerVAT": {
                         "type": "string",
-                        "description": "Partner VAT ID",
+                        "description": "Partner VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "partnerLocalVAT": {
                         "type": "string",
-                        "description": "Partner local VAT ID",
+                        "description": "Partner local VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "partnerName": {
@@ -22498,6 +23603,11 @@
                         "description": "Linked order number",
                         "nullable": true
                     },
+                    "buyerReference": {
+                        "type": "string",
+                        "description": "Gets or sets the buyer reference (Peppol BT-10, `cbc:BuyerReference`) - an identifier the buyer assigns\r\nfor internal routing of the invoice, e.g. a department or cost centre code. It is sent in outgoing Peppol\r\ndocuments (the buyer's company id is sent instead when it is empty) and taken over from received ones.",
+                        "nullable": true
+                    },
                     "description": {
                         "type": "string",
                         "description": "Document description",
@@ -22583,6 +23693,15 @@
                         "description": "Name or login of user, who created the document",
                         "nullable": true
                     },
+                    "removedBy": {
+                        "type": "string",
+                        "description": "Name or login of user, who moved the document to the recycle bin",
+                        "nullable": true
+                    },
+                    "isBlockedByLimit": {
+                        "type": "boolean",
+                        "description": "The document is over the organization's document limit and must not be processed"
+                    },
                     "series": {
                         "type": "string",
                         "description": "Serie code - Deprecated",
@@ -22616,6 +23735,9 @@
                         },
                         "description": "Lines list",
                         "nullable": true
+                    },
+                    "printSettings": {
+                        "$ref": "#/components/schemas/DocumentPrintSettings"
                     },
                     "transactionId": {
                         "type": "string",
@@ -22794,17 +23916,17 @@
                     },
                     "partnerIC": {
                         "type": "string",
-                        "description": "Partner ID",
+                        "description": "Partner tax ID. (max 20 characters)",
                         "nullable": true
                     },
                     "partnerVAT": {
                         "type": "string",
-                        "description": "Partner VAT ID",
+                        "description": "Partner VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "partnerLocalVAT": {
                         "type": "string",
-                        "description": "Partner local VAT ID",
+                        "description": "Partner local VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "partnerName": {
@@ -22902,6 +24024,11 @@
                         "description": "Linked order number",
                         "nullable": true
                     },
+                    "buyerReference": {
+                        "type": "string",
+                        "description": "Gets or sets the buyer reference (Peppol BT-10, `cbc:BuyerReference`) - an identifier the buyer assigns\r\nfor internal routing of the invoice, e.g. a department or cost centre code. It is sent in outgoing Peppol\r\ndocuments (the buyer's company id is sent instead when it is empty) and taken over from received ones.",
+                        "nullable": true
+                    },
                     "description": {
                         "type": "string",
                         "description": "Document description",
@@ -22986,6 +24113,15 @@
                         "type": "string",
                         "description": "Name or login of user, who created the document",
                         "nullable": true
+                    },
+                    "removedBy": {
+                        "type": "string",
+                        "description": "Name or login of user, who moved the document to the recycle bin",
+                        "nullable": true
+                    },
+                    "isBlockedByLimit": {
+                        "type": "boolean",
+                        "description": "The document is over the organization's document limit and must not be processed"
                     },
                     "series": {
                         "type": "string",
@@ -23110,10 +24246,14 @@
                     "SetMainFile",
                     "BudgetUpdated",
                     "MovedToOtherOrganization",
-                    "MovedFromOtherOrganization"
+                    "MovedFromOtherOrganization",
+                    "SentViaPeppol",
+                    "PaymentsSynchronized",
+                    "ApprovalsTakenOverFromOrder",
+                    "DeleteDocumentPaymentOrder"
                 ],
                 "type": "string",
-                "description": "(Create = 0, Update = 1, Delete = 2, Restore = 3, Approved = 4, Unapproved = 5, Locked = 6, Unlocked = 7, Rejected = 8, Returned = 9, FileAdded = 10, FileDeleted = 11, TaskAdded = 12, TaskProcessed = 13, SetDocumentRights = 14, SetDocumentApprovals = 15, DeleteDocumentApprovals = 16, AddDocumentPayment = 17, UpdateDocumentPayment = 18, ChangeProperty = 19, TimeStamped = 20, Signed = 21, AddDocumentPaymentRequest = 22, Delivered = 23, DeliverCanceled = 24, SentByEmail = 25, ReturnedBack = 26, ChangedFlowStatus = 27, ChangedKind = 28, SentForSigning = 29, Confirmed = 30, Unconfirmed = 31, SentFiles = 32, AddDocumentPaymentOrder = 33, DeleteDocumentPayment = 34, DeleteDocumentPaymentRequest = 35, MovedFromOrganization = 36, Split = 37, ChangeDocumentApprovals = 38, Merged = 39, Linked = 40, SetAccess = 41, ExpenseTransactionPaired = 42, ExpenseTransactionUnpaired = 43, SetMainFile = 44, BudgetUpdated = 45, MovedToOtherOrganization = 46, MovedFromOtherOrganization = 47)"
+                "description": "(Create = 0, Update = 1, Delete = 2, Restore = 3, Approved = 4, Unapproved = 5, Locked = 6, Unlocked = 7, Rejected = 8, Returned = 9, FileAdded = 10, FileDeleted = 11, TaskAdded = 12, TaskProcessed = 13, SetDocumentRights = 14, SetDocumentApprovals = 15, DeleteDocumentApprovals = 16, AddDocumentPayment = 17, UpdateDocumentPayment = 18, ChangeProperty = 19, TimeStamped = 20, Signed = 21, AddDocumentPaymentRequest = 22, Delivered = 23, DeliverCanceled = 24, SentByEmail = 25, ReturnedBack = 26, ChangedFlowStatus = 27, ChangedKind = 28, SentForSigning = 29, Confirmed = 30, Unconfirmed = 31, SentFiles = 32, AddDocumentPaymentOrder = 33, DeleteDocumentPayment = 34, DeleteDocumentPaymentRequest = 35, MovedFromOrganization = 36, Split = 37, ChangeDocumentApprovals = 38, Merged = 39, Linked = 40, SetAccess = 41, ExpenseTransactionPaired = 42, ExpenseTransactionUnpaired = 43, SetMainFile = 44, BudgetUpdated = 45, MovedToOtherOrganization = 46, MovedFromOtherOrganization = 47, SentViaPeppol = 48, PaymentsSynchronized = 49, ApprovalsTakenOverFromOrder = 50, DeleteDocumentPaymentOrder = 51)"
             },
             "DocumentFile": {
                 "type": "object",
@@ -23245,6 +24385,24 @@
                 "additionalProperties": false,
                 "description": "Document line"
             },
+            "DocumentLink": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Gets or sets the internal document ID.",
+                        "format": "uuid"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/DocumentTypeBase"
+                    },
+                    "invoiceType": {
+                        "$ref": "#/components/schemas/InvoiceType"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Represents a lightweight reference to a linked document."
+            },
             "DocumentPayment": {
                 "type": "object",
                 "properties": {
@@ -23280,6 +24438,42 @@
                     }
                 },
                 "additionalProperties": false
+            },
+            "DocumentPrintSettings": {
+                "type": "object",
+                "properties": {
+                    "textAboveLines": {
+                        "type": "string",
+                        "description": "Free text rendered above the document lines",
+                        "nullable": true
+                    },
+                    "textBelowLines": {
+                        "type": "string",
+                        "description": "Free text rendered below the document lines",
+                        "nullable": true
+                    },
+                    "footerText": {
+                        "type": "string",
+                        "description": "Free text rendered in the footer",
+                        "nullable": true
+                    },
+                    "paymentMethod": {
+                        "$ref": "#/components/schemas/PrintPaymentMethod"
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Language the PDF is rendered in. Null keeps the default resolution - partner language,\r\nthen the organization default.",
+                        "nullable": true
+                    },
+                    "templateId": {
+                        "type": "integer",
+                        "description": "Template id of the legacy external print provider. Null means the organization default is used.\r\nTemporary - it goes away with the legacy template sunset (WCORE-297).",
+                        "format": "int32",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Print and PDF settings of a single document (dbo.DocumentPrintSettings).\r\nAll values are optional - a document without them falls back to the defaults."
             },
             "DocumentSource": {
                 "enum": [
@@ -23709,6 +24903,11 @@
                         "description": "Linked order number",
                         "nullable": true
                     },
+                    "buyerReference": {
+                        "type": "string",
+                        "description": "Gets or sets the buyer reference (Peppol BT-10, `cbc:BuyerReference`) - an identifier the buyer assigns\r\nfor internal routing of the invoice, e.g. a department or cost centre code. It is sent in outgoing Peppol\r\ndocuments (the buyer's company id is sent instead when it is empty) and taken over from received ones.",
+                        "nullable": true
+                    },
                     "description": {
                         "type": "string",
                         "description": "Document description",
@@ -23780,6 +24979,9 @@
                     },
                     "accounting": {
                         "$ref": "#/components/schemas/DocumentUpdateAccounting"
+                    },
+                    "printSettings": {
+                        "$ref": "#/components/schemas/DocumentPrintSettings"
                     },
                     "taxExclusiveAmount": {
                         "type": "number",
@@ -24406,6 +25608,29 @@
                 "additionalProperties": false,
                 "description": "Location"
             },
+            "MessageMetadata": {
+                "type": "object",
+                "properties": {
+                    "documentIdentifier": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "documentFormat": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sentAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "processIdentifier": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "MoneyERPExportParameters": {
                 "properties": {
                     "Sequence": {
@@ -24510,6 +25735,12 @@
                         "description": "Gets or sets the bi dashboard trial expires.",
                         "format": "date-time",
                         "nullable": true
+                    },
+                    "limit": {
+                        "$ref": "#/components/schemas/OrganizationLimit"
+                    },
+                    "peppolVerified": {
+                        "type": "boolean"
                     }
                 },
                 "additionalProperties": false
@@ -24545,6 +25776,27 @@
                 },
                 "additionalProperties": false,
                 "description": "Organization domain"
+            },
+            "OrganizationLimit": {
+                "type": "object",
+                "properties": {
+                    "documentsPerMonth": {
+                        "type": "integer",
+                        "description": "Null ends the limit; leaving it alone is what cDocumentsPerMonth tells apart.",
+                        "format": "int32",
+                        "nullable": true
+                    },
+                    "period": {
+                        "type": "integer",
+                        "format": "int32",
+                        "nullable": true
+                    },
+                    "validFrom": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                },
+                "additionalProperties": false
             },
             "OrganizationPerson": {
                 "type": "object",
@@ -24731,6 +25983,12 @@
                         "type": "integer",
                         "format": "int32",
                         "nullable": true
+                    },
+                    "printThemeId": {
+                        "maxLength": 20,
+                        "type": "string",
+                        "description": "PDF engine theme id used to render the organization's documents; null keeps them on the\r\nlegacy external print provider",
+                        "nullable": true
                     }
                 },
                 "additionalProperties": false
@@ -24753,13 +26011,17 @@
                         "nullable": true
                     },
                     "ic": {
+                        "maxLength": 20,
+                        "minLength": 0,
                         "type": "string",
-                        "description": "Tax ID. (max 10 characters)",
+                        "description": "Tax ID. (max 20 characters)",
                         "nullable": true
                     },
                     "vat": {
+                        "maxLength": 20,
+                        "minLength": 0,
                         "type": "string",
-                        "description": "VAT ID.  (max 15 characters)",
+                        "description": "VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "name": {
@@ -24776,8 +26038,10 @@
                         "$ref": "#/components/schemas/AddressType"
                     },
                     "localVAT": {
+                        "maxLength": 20,
+                        "minLength": 0,
                         "type": "string",
-                        "description": "Local VAT ID",
+                        "description": "Local VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "note": {
@@ -24786,11 +26050,15 @@
                         "nullable": true
                     },
                     "phoneNo": {
+                        "maxLength": 30,
+                        "minLength": 0,
                         "type": "string",
                         "description": "Phone No",
                         "nullable": true
                     },
                     "mailAddress": {
+                        "maxLength": 100,
+                        "minLength": 0,
                         "type": "string",
                         "description": "E-mail address",
                         "nullable": true
@@ -24813,6 +26081,8 @@
                         "format": "int32"
                     },
                     "language": {
+                        "maxLength": 2,
+                        "minLength": 0,
                         "type": "string",
                         "description": "Primary language. ISO 639-1:2002 language code (2 characters)",
                         "nullable": true
@@ -24824,6 +26094,13 @@
                     "businessRegisterRegistration": {
                         "type": "string",
                         "description": "Business register registration text",
+                        "nullable": true
+                    },
+                    "buyerReference": {
+                        "maxLength": 100,
+                        "minLength": 0,
+                        "type": "string",
+                        "description": "Gets or sets the buyer reference (Peppol BT-10) the partner wants on documents issued to them - an identifier\r\nfor their internal routing, e.g. a department or cost centre code. It prefills the buyer reference of a new\r\ndocument issued to this partner.",
                         "nullable": true
                     },
                     "customer": {
@@ -24888,13 +26165,17 @@
                         "nullable": true
                     },
                     "ic": {
+                        "maxLength": 20,
+                        "minLength": 0,
                         "type": "string",
-                        "description": "ID",
+                        "description": "Tax ID. (max 20 characters)",
                         "nullable": true
                     },
                     "vat": {
+                        "maxLength": 20,
+                        "minLength": 0,
                         "type": "string",
-                        "description": "VAT ID",
+                        "description": "VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "name": {
@@ -24911,8 +26192,10 @@
                         "$ref": "#/components/schemas/AddressType"
                     },
                     "localVAT": {
+                        "maxLength": 20,
+                        "minLength": 0,
                         "type": "string",
-                        "description": "Local VAT ID",
+                        "description": "Local VAT ID. (max 20 characters)",
                         "nullable": true
                     },
                     "note": {
@@ -24921,11 +26204,15 @@
                         "nullable": true
                     },
                     "phoneNo": {
+                        "maxLength": 30,
+                        "minLength": 0,
                         "type": "string",
                         "description": "Phone No",
                         "nullable": true
                     },
                     "mailAddress": {
+                        "maxLength": 100,
+                        "minLength": 0,
                         "type": "string",
                         "description": "E-mail address",
                         "nullable": true
@@ -24948,6 +26235,8 @@
                         "format": "int32"
                     },
                     "language": {
+                        "maxLength": 2,
+                        "minLength": 0,
                         "type": "string",
                         "description": "Primary language. ISO 639-1:2002 language code (2 characters)",
                         "nullable": true
@@ -24961,6 +26250,13 @@
                         "description": "Business register registration text",
                         "nullable": true
                     },
+                    "buyerReference": {
+                        "maxLength": 100,
+                        "minLength": 0,
+                        "type": "string",
+                        "description": "Gets or sets the buyer reference (Peppol BT-10) the partner wants on documents issued to them - an identifier\r\nfor their internal routing, e.g. a department or cost centre code. It prefills the buyer reference of a new\r\ndocument issued to this partner.",
+                        "nullable": true
+                    },
                     "customer": {
                         "type": "boolean",
                         "description": "Customer attribute"
@@ -24970,22 +26266,32 @@
                         "description": "Supplier attribute"
                     },
                     "accountNo": {
+                        "maxLength": 30,
+                        "minLength": 0,
                         "type": "string",
                         "nullable": true
                     },
                     "bankCode": {
+                        "maxLength": 4,
+                        "minLength": 0,
                         "type": "string",
                         "nullable": true
                     },
                     "iban": {
+                        "maxLength": 42,
+                        "minLength": 0,
                         "type": "string",
                         "nullable": true
                     },
                     "bic": {
+                        "maxLength": 15,
+                        "minLength": 0,
                         "type": "string",
                         "nullable": true
                     },
                     "currency": {
+                        "maxLength": 3,
+                        "minLength": 0,
                         "type": "string",
                         "nullable": true
                     },
@@ -25165,6 +26471,297 @@
                 ],
                 "type": "string",
                 "description": "(NotPaid = 0, PartiallyPaid = 1, Paid = 2, OverPaid = 3)"
+            },
+            "PeppolDocumentTypeEnum": {
+                "enum": [
+                    "ApplicationResponse",
+                    "AttachedDocument",
+                    "AwardedNotification",
+                    "BillOfLading",
+                    "CallForTenders",
+                    "Catalogue",
+                    "CatalogueDeletion",
+                    "CatalogueItemSpecificationUpdate",
+                    "CataloguePricingUpdate",
+                    "CatalogueRequest",
+                    "CertificateOfOrigin",
+                    "ContractAwardNotice",
+                    "ContractNotice",
+                    "CreditNote",
+                    "DebitNote",
+                    "DespatchAdvice",
+                    "DocumentStatus",
+                    "DocumentStatusRequest",
+                    "ExceptionCriteria",
+                    "ExceptionNotification",
+                    "Forecast",
+                    "ForecastRevision",
+                    "ForwardingInstructions",
+                    "FreightInvoice",
+                    "FulfilmentCancellation",
+                    "GoodsItemItinerary",
+                    "GuaranteeCertificate",
+                    "InstructionForReturns",
+                    "InventoryReport",
+                    "Invoice",
+                    "ItemInformationRequest",
+                    "Order",
+                    "OrderCancellation",
+                    "OrderChange",
+                    "OrderResponse",
+                    "OrderResponseSimple",
+                    "PackingList",
+                    "PriorInformationNotice",
+                    "ProductActivity",
+                    "Quotation",
+                    "ReceiptAdvice",
+                    "Reminder",
+                    "RemittanceAdvice",
+                    "RequestForQuotation",
+                    "RetailEvent",
+                    "SelfBilledCreditNote",
+                    "SelfBilledInvoice",
+                    "Statement",
+                    "StockAvailabilityReport",
+                    "Tender",
+                    "TenderReceipt",
+                    "TendererQualification",
+                    "TendererQualificationResponse",
+                    "TradeItemLocationProfile",
+                    "TransportExecutionPlan",
+                    "TransportExecutionPlanRequest",
+                    "TransportProgressStatus",
+                    "TransportProgressStatusRequest",
+                    "TransportServiceDescription",
+                    "TransportServiceDescriptionRequest",
+                    "TransportationStatus",
+                    "TransportationStatusRequest",
+                    "UnawardedNotification",
+                    "UtilityStatement",
+                    "Waybill"
+                ],
+                "type": "string",
+                "description": "(ApplicationResponse = 0, AttachedDocument = 1, AwardedNotification = 2, BillOfLading = 3, CallForTenders = 4, Catalogue = 5, CatalogueDeletion = 6, CatalogueItemSpecificationUpdate = 7, CataloguePricingUpdate = 8, CatalogueRequest = 9, CertificateOfOrigin = 10, ContractAwardNotice = 11, ContractNotice = 12, CreditNote = 13, DebitNote = 14, DespatchAdvice = 15, DocumentStatus = 16, DocumentStatusRequest = 17, ExceptionCriteria = 18, ExceptionNotification = 19, Forecast = 20, ForecastRevision = 21, ForwardingInstructions = 22, FreightInvoice = 23, FulfilmentCancellation = 24, GoodsItemItinerary = 25, GuaranteeCertificate = 26, InstructionForReturns = 27, InventoryReport = 28, Invoice = 29, ItemInformationRequest = 30, Order = 31, OrderCancellation = 32, OrderChange = 33, OrderResponse = 34, OrderResponseSimple = 35, PackingList = 36, PriorInformationNotice = 37, ProductActivity = 38, Quotation = 39, ReceiptAdvice = 40, Reminder = 41, RemittanceAdvice = 42, RequestForQuotation = 43, RetailEvent = 44, SelfBilledCreditNote = 45, SelfBilledInvoice = 46, Statement = 47, StockAvailabilityReport = 48, Tender = 49, TenderReceipt = 50, TendererQualification = 51, TendererQualificationResponse = 52, TradeItemLocationProfile = 53, TransportExecutionPlan = 54, TransportExecutionPlanRequest = 55, TransportProgressStatus = 56, TransportProgressStatusRequest = 57, TransportServiceDescription = 58, TransportServiceDescriptionRequest = 59, TransportationStatus = 60, TransportationStatusRequest = 61, UnawardedNotification = 62, UtilityStatement = 63, Waybill = 64)"
+            },
+            "PeppolMessage": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Gets or sets the internal message ID.",
+                        "format": "uuid"
+                    },
+                    "peppolMessageId": {
+                        "type": "string",
+                        "description": "Gets or sets the external PEPPOL message ID.",
+                        "nullable": true
+                    },
+                    "peppolDocumentId": {
+                        "type": "string",
+                        "description": "Gets or sets the PEPPOL document ID.",
+                        "nullable": true
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/PeppolMessageStatus"
+                    },
+                    "statusChangedAt": {
+                        "type": "string",
+                        "description": "Gets or sets the date and time when status was last changed.",
+                        "format": "date-time"
+                    },
+                    "rejectReason": {
+                        "$ref": "#/components/schemas/PeppolRejectReason"
+                    },
+                    "requiredAction": {
+                        "$ref": "#/components/schemas/PeppolRequiredAction"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "description": "Gets or sets the date and time when the message was created.",
+                        "format": "date-time"
+                    },
+                    "documentType": {
+                        "$ref": "#/components/schemas/PeppolDocumentTypeEnum"
+                    },
+                    "senderId": {
+                        "type": "string",
+                        "description": "Gets or sets the sender PEPPOL participant ID.",
+                        "nullable": true
+                    },
+                    "senderName": {
+                        "type": "string",
+                        "description": "Gets or sets the sender display name.",
+                        "nullable": true
+                    },
+                    "receiverId": {
+                        "type": "string",
+                        "description": "Gets or sets the receiver PEPPOL participant ID.",
+                        "nullable": true
+                    },
+                    "receiverName": {
+                        "type": "string",
+                        "description": "Gets or sets the receiver display name.",
+                        "nullable": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Gets or sets the human-readable message text.",
+                        "nullable": true
+                    },
+                    "document": {
+                        "$ref": "#/components/schemas/DocumentLink"
+                    },
+                    "archivedAt": {
+                        "type": "string",
+                        "description": "Gets or sets the date and time when the message was archived.",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "direction": {
+                        "$ref": "#/components/schemas/PeppolMessageDirection"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Represents a PEPPOL message with sender/receiver and document metadata."
+            },
+            "PeppolMessageCollection": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PeppolMessage"
+                        },
+                        "description": "List of items",
+                        "nullable": true
+                    },
+                    "totalItems": {
+                        "type": "integer",
+                        "description": "Total available items count",
+                        "format": "int32"
+                    },
+                    "pageSize": {
+                        "type": "integer",
+                        "description": "Size of result",
+                        "format": "int32"
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Total pages based on the current page size and total available items",
+                        "format": "int32"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Collection with paging information"
+            },
+            "PeppolMessageDetail": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "$ref": "#/components/schemas/PeppolMessage"
+                    },
+                    "document": {
+                        "$ref": "#/components/schemas/Document"
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Attachment"
+                        },
+                        "description": "Gets or sets the list of document attachments.",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "$ref": "#/components/schemas/MessageMetadata"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Represents detailed PEPPOL message data including document content and metadata."
+            },
+            "PeppolMessageDirection": {
+                "enum": [
+                    "Incoming",
+                    "Outgoing"
+                ],
+                "type": "string",
+                "description": "(Incoming = 0, Outgoing = 1)"
+            },
+            "PeppolMessageRejectRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "$ref": "#/components/schemas/PeppolRejectReason"
+                    },
+                    "requiredAction": {
+                        "$ref": "#/components/schemas/PeppolRequiredAction"
+                    },
+                    "note": {
+                        "type": "string",
+                        "description": "Gets or sets an optional note with additional details.",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Represents a request to reject a PEPPOL message."
+            },
+            "PeppolMessageStatus": {
+                "enum": [
+                    "Queued",
+                    "Sent",
+                    "Delivered",
+                    "Error",
+                    "AB",
+                    "IP",
+                    "AP",
+                    "PD",
+                    "RE",
+                    "CA",
+                    "UQ"
+                ],
+                "type": "string",
+                "description": "(Queued = 0, Sent = 1, Delivered = 2, Error = 3, AB = 4, IP = 5, AP = 6, PD = 7, RE = 8, CA = 9, UQ = 10)"
+            },
+            "PeppolRejectReason": {
+                "enum": [
+                    "NoIssue",
+                    "ReferencesIncorrect",
+                    "LegalInformationIncorrect",
+                    "ReceiverUnknown",
+                    "ItemQualityInsufficient",
+                    "DeliveryIssues",
+                    "PricesIncorrect",
+                    "QuantityIncorrect",
+                    "ItemsIncorrect",
+                    "PaymentTermsIncorrect",
+                    "NotRecognized",
+                    "FinanceIncorrect",
+                    "PartiallyPaid",
+                    "Other"
+                ],
+                "type": "string",
+                "description": "(NoIssue = 0, ReferencesIncorrect = 1, LegalInformationIncorrect = 2, ReceiverUnknown = 3, ItemQualityInsufficient = 4, DeliveryIssues = 5, PricesIncorrect = 6, QuantityIncorrect = 7, ItemsIncorrect = 8, PaymentTermsIncorrect = 9, NotRecognized = 10, FinanceIncorrect = 11, PartiallyPaid = 12, Other = 13)"
+            },
+            "PeppolRequiredAction": {
+                "enum": [
+                    "NoActionRequired",
+                    "ProvideInformation",
+                    "IssueNewInvoice",
+                    "CreditFully",
+                    "CreditPartially",
+                    "CreditTheAmount",
+                    "Other"
+                ],
+                "type": "string",
+                "description": "(NoActionRequired = 0, ProvideInformation = 1, IssueNewInvoice = 2, CreditFully = 3, CreditPartially = 4, CreditTheAmount = 5, Other = 6)"
+            },
+            "PrintPaymentMethod": {
+                "enum": [
+                    "BankTransfer",
+                    "Card",
+                    "Cash"
+                ],
+                "type": "string",
+                "description": "Fixed system codebook of payment methods, unrelated to the user-maintained wflow.Core.Contracts.Registers.PaymentMethods register. (BankTransfer = 1, Card = 2, Cash = 3)"
             },
             "ProblemDetails": {
                 "type": "object",
@@ -25589,6 +27186,37 @@
                 },
                 "additionalProperties": false,
                 "description": "Role for update"
+            },
+            "SendDocumentViaPeppolRequest": {
+                "type": "object",
+                "properties": {
+                    "recipientPeppolId": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SendDocumentViaPeppolRequestAttachment"
+                        },
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "SendDocumentViaPeppolRequestAttachment": {
+                "type": "object",
+                "properties": {
+                    "fileId": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "additionalProperties": false
             },
             "SequenceBase": {
                 "type": "object",
@@ -26440,6 +28068,10 @@
         {
             "name": "Organization",
             "description": "Organization"
+        },
+        {
+            "name": "Peppol",
+            "description": "Peppol messages"
         },
         {
             "name": "Registers",
