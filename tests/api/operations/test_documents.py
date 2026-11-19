@@ -1,3 +1,4 @@
+import inspect
 import json
 from datetime import UTC, datetime
 
@@ -341,6 +342,37 @@ async def test_each_parameter_write_builds_its_request(name, arguments, method, 
         assert requests[0].url.params[key] == value
 
 
+async def test_a_processed_task_without_success_leaves_wflows_default():
+    path = "/api/acme/documents/d-1/task/Export/processed"
+    client, requests = mock_wflow({path: None})
+
+    await documents.set_document_task_processed(client, organization="acme", documentId="d-1", taskType="Export")
+
+    assert not requests[0].url.params
+
+
+async def test_a_failed_task_carries_its_message():
+    path = "/api/acme/documents/d-1/task/Export/processed"
+    client, requests = mock_wflow({path: None})
+
+    await documents.set_document_task_processed(
+        client, organization="acme", documentId="d-1", taskType="Export", success=False, message="ERP rejected VAT"
+    )
+
+    assert dict(requests[0].url.params) == {"success": "false", "message": "ERP rejected VAT"}
+
+
+def test_the_task_processed_description_states_the_default_the_message_and_the_failure():
+    doc = " ".join(inspect.getdoc(documents.set_document_task_processed).split())
+
+    assert "defaults to true" in doc
+    assert "marks the extraction or export as failed" in doc
+    assert "stored on the task" in doc
+    assert "`list_document_events`" in doc and "TaskProcessed" in doc and "`info`" in doc
+    assert "fails if the document has no open task of that type" in doc
+    assert "which is permanent: nothing moves it back" in doc
+
+
 @pytest.mark.parametrize(
     "name,arguments,path,body,response,outcome",
     [
@@ -592,6 +624,16 @@ def test_a_blocked_document_says_what_is_still_allowed(model):
 
     assert "The workspace's document limit was used up when the document was created" in description
     assert "until it is released, only reading, deleting and setting payments are allowed" in description
+
+
+def test_the_document_read_lists_the_new_summary_fields_and_what_a_blocked_document_allows():
+    description = " ".join((documents.get_document.__doc__ or "").split())
+
+    assert "`source`, `dataSource`, `buyerReference`, `removedBy` and `isBlockedByLimit`." in description
+    assert (
+        "A document with `isBlockedByLimit` set can be read, deleted and have its payments set; every other "
+        "change is refused."
+    ) in description
 
 
 def test_the_document_update_names_its_two_exceptions_to_sending_the_full_record():

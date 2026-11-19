@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 
 from tests.helpers import mock_download, mock_response, mock_wflow
@@ -171,3 +173,10 @@ async def test_an_upload_given_text_instead_of_bytes_sends_nothing():
         )
 
     assert requests == []
+
+
+def test_the_stamp_description_says_the_original_is_overwritten():
+    doc = " ".join(inspect.getdoc(document_files.stamp_document_file).split())
+
+    assert "overwrites the PDF in place" in doc
+    assert "the unstamped original is gone" in doc

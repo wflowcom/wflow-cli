@@ -96,8 +96,9 @@ async def delete_document_file(client: WflowClient, organization: OrgSlug, fileI
 async def stamp_document_file(client: WflowClient, organization: OrgSlug, documentId: str, fileId: str) -> WriteResult:
     """Apply wflow's time stamp to one file attached to a document.
 
-    The stamp goes into the stored file and nothing takes it off again. Only a
-    PDF can be stamped; any other file is rejected as an unsupported file type.
+    Stamping overwrites the PDF in place: the unstamped original is gone, and nothing
+    takes the stamp off again. Only a PDF can be stamped; any other file is rejected as
+    an unsupported file type.
     `list_document_files` reports which files already carry one as `stamped`, and a
     document type can stamp automatically — `list_document_types` shows that as `autoStamp`.
 

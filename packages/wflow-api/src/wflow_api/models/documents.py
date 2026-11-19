@@ -13,7 +13,10 @@ from the regenerated output and import them instead of duplicating them —
   Register, Serie, VATReturnLine
 
 Also delete `Property._value` from the regenerated output: the spec marks it
-`writeOnly: true`, so wflow never sends it back and there is nothing here to read."""
+`writeOnly: true`, so wflow never sends it back and there is nothing here to read.
+
+`CreateDocumentWithFilesResult` at the end is written by hand: the spec names it but
+defines no schema for it, so regeneration does not emit it. Keep it."""
 
 from typing import Any
 
@@ -562,3 +565,15 @@ class ApprovalProcess(WflowModel):
 
     pathName: str | None = Field(default=None, description="Path name")
     items: list[ApprovalProcessItem] | None = Field(default=None, description="Approval process item collection")
+
+
+class CreateDocumentWithFilesResult(WflowModel):
+    """The document create_document_with_files made, and where it ended up."""
+
+    documentId: str | None = Field(default=None, description="The new document's id")
+    newOrganization: str | None = Field(
+        default=None,
+        description=(
+            "Slug of the other workspace of the same customer the document was moved to; null when it was not moved"
+        ),
+    )

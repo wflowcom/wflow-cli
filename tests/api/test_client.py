@@ -102,6 +102,27 @@ async def test_an_upload_is_multipart_under_the_named_field():
     assert b"%PDF" in sent[0].content
 
 
+async def test_several_files_are_one_multipart_body_under_one_field():
+    client, sent = mock_response(200, json={"documentId": "d-1"})
+
+    result = await client.upload_files(
+        "POST",
+        "/api/acme/documents/withfiles",
+        [("a.pdf", b"%PDF-a"), ("b.pdf", b"%PDF-b")],
+        {"typeId": "t"},
+        "uploadedFiles",
+    )
+
+    body = sent[0].content
+    assert result == {"documentId": "d-1"}
+    assert len(sent) == 1
+    assert sent[0].url.params["typeId"] == "t"
+    assert b'name="uploadedFiles"; filename="a.pdf"' in body
+    assert b'name="uploadedFiles"; filename="b.pdf"' in body
+    assert body.count(b'name="uploadedFiles"') == 2
+    assert body.index(b"%PDF-a") < body.index(b"%PDF-b")
+
+
 async def test_a_download_returns_the_bytes_and_what_wflow_said_about_them():
     client, sent = mock_download(b"%PDF-1.7", filename="invoice.pdf")
 
