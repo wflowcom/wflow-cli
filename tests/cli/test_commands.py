@@ -12,7 +12,13 @@ from wflow_cli.commands import _command, _json_help, build_app, command_name, ex
 
 runner = CliRunner()
 
-DOWNLOADS = ("download-document-main-file", "download-document-file", "download-storage-file", "export-documents")
+DOWNLOADS = (
+    "download-document-main-file",
+    "download-document-file",
+    "download-storage-file",
+    "export-documents",
+    "download-peppol-message-attachment",
+)
 
 
 def test_names_follow_the_operation_mechanically():
@@ -30,7 +36,7 @@ def test_every_operation_is_a_command():
     registered = {command.name for command in app.registered_commands}
 
     assert registered == {command_name(fn.__name__) for _, fn in operations()}
-    assert len(registered) == 173
+    assert len(registered) == 182
 
 
 @pytest.mark.parametrize(("module", "fn"), operations(), ids=lambda value: getattr(value, "__name__", value))

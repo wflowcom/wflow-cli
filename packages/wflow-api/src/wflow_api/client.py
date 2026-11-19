@@ -81,18 +81,37 @@ class WflowClient:
         params: dict[str, object] | None = None,
         field: str = "file",
     ) -> Any:
+        return await self.upload_files(method, path, [(filename, content)], params, field)
+
+    async def upload_files(
+        self,
+        method: str,
+        path: str,
+        files: list[tuple[str, bytes]],
+        params: dict[str, object] | None = None,
+        field: str = "file",
+    ) -> Any:
         return await self.request(
-            method, path, params=params or {}, files={field: (filename, content)}, timeout=UPLOAD_TIMEOUT
+            method,
+            path,
+            params=params or {},
+            files=[(field, (name, content)) for name, content in files],
+            timeout=UPLOAD_TIMEOUT,
         )
 
     async def download(
-        self, path: str, method: str = "GET", json: Any = None, max_bytes: int | None = None
+        self,
+        path: str,
+        method: str = "GET",
+        json: Any = None,
+        max_bytes: int | None = None,
+        params: dict[str, Any] | None = None,
     ) -> FileContent:
         headers = await self._signed()
         try:
             async with (
                 self._http(DOWNLOAD_TIMEOUT) as http,
-                http.stream(method, path, headers=headers, json=json) as response,
+                http.stream(method, path, headers=headers, json=json, params=params) as response,
             ):
                 if response.is_error:
                     await response.aread()

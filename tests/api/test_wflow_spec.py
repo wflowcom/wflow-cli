@@ -21,6 +21,21 @@ def test_the_other_operations_are_named_from_the_table():
     )
 
 
+def test_the_peppol_operations_are_named_from_the_table():
+    assert gen.tool_name("get", "/api/{organization}/peppol/messages", "Get Peppol messages") == "list_peppol_messages"
+    assert (
+        gen.tool_name(
+            "put", "/api/{organization}/peppol/messages/{id}/conditionallyaccept", "Conditionally accept Peppol message"
+        )
+        == "accept_peppol_message_conditionally"
+    )
+    assert (
+        gen.tool_name("post", "/api/{organization}/documents/{documentId}/peppol/send", "Send via Peppol")
+        == "send_document_via_peppol"
+    )
+    assert gen.LEAF_BY_TAG["Peppol"] == "documents"
+
+
 def test_an_unknown_operation_is_an_error_not_a_guess():
     """A silently invented name is how an endpoint gets wrapped twice under two names."""
     try:
@@ -37,7 +52,7 @@ def test_every_generated_name_is_unique(wflow_spec):
     ]
 
     assert len(names) == len(set(names)), "two operations claim the same tool name"
-    assert len(names) == 173
+    assert len(names) == 182
 
 
 def test_every_tag_has_a_leaf(wflow_spec):

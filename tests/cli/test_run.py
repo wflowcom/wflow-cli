@@ -204,6 +204,59 @@ def test_an_upload_of_a_missing_file_is_a_usage_error(tmp_path):
     assert sent == []
 
 
+def test_create_document_with_files_sends_every_file_in_order(tmp_path):
+    main, annex = tmp_path / "invoice.pdf", tmp_path / "annex.pdf"
+    main.write_bytes(b"%PDF-main")
+    annex.write_bytes(b"%PDF-annex")
+
+    client, sent = mock_wflow({"/api/acme/documents/withfiles": {"documentId": "d-9", "newOrganization": None}})
+    ran = runner.invoke(
+        app_on(client),
+        ["create-document-with-files", "-o", "acme", "--file", str(main), "--file", str(annex), "--type-id", "t-1"],
+    )
+
+    assert ran.exit_code == 0, ran.output
+    body = sent[0].content
+    assert body.index(b"%PDF-main") < body.index(b"%PDF-annex")
+    assert body.index(b'filename="invoice.pdf"') < body.index(b'filename="annex.pdf"')
+    assert str(tmp_path).encode() not in body
+    assert json.loads(ran.stdout)["documentId"] == "d-9"
+
+
+def test_create_document_with_files_refuses_a_missing_file_before_sending_any(tmp_path):
+    main = tmp_path / "invoice.pdf"
+    main.write_bytes(b"%PDF-main")
+    client, sent = mock_wflow({})
+
+    ran = runner.invoke(
+        app_on(client),
+        [
+            "create-document-with-files",
+            "-o",
+            "acme",
+            "--type-id",
+            "t-1",
+            "--file",
+            str(main),
+            "--file",
+            str(tmp_path / "nope.pdf"),
+        ],
+    )
+
+    assert ran.exit_code == 2
+    assert sent == []
+
+
+def test_create_document_with_files_needs_a_file():
+    client, sent = mock_wflow({})
+
+    ran = runner.invoke(app_on(client), ["create-document-with-files", "-o", "acme", "--type-id", "t-1"])
+
+    assert ran.exit_code == 2
+    assert "Missing option '--file'" in ran.output
+    assert sent == []
+
+
 def test_a_download_is_written_to_the_named_file(tmp_path):
     client, sent = mock_download(b"%PDF-1.7", filename="invoice.pdf")
     target = tmp_path / "out.pdf"

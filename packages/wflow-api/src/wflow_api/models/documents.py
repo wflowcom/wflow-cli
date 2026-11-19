@@ -4,7 +4,7 @@ Regenerate with:
 
     uv run scripts/wflow_spec.py --models Document DocumentBase DocumentTypeFull DocumentEvent DocumentFile Comment Property PropertyDefinition ApprovalProcess
 
-then review the diff. That command's dependency closure emits 31 classes, not the 21
+then review the diff. That command's dependency closure emits 32 classes, not the 22
 below: the other 10 are schemas this codebase already models elsewhere, so delete them
 from the regenerated output and import them instead of duplicating them —
 
@@ -13,7 +13,10 @@ from the regenerated output and import them instead of duplicating them —
   Register, Serie, VATReturnLine
 
 Also delete `Property._value` from the regenerated output: the spec marks it
-`writeOnly: true`, so wflow never sends it back and there is nothing here to read."""
+`writeOnly: true`, so wflow never sends it back and there is nothing here to read.
+
+`CreateDocumentWithFilesResult` at the end is written by hand: the spec names it but
+defines no schema for it, so regeneration does not emit it. Keep it."""
 
 from typing import Any
 
@@ -40,6 +43,29 @@ class DocumentPayment(WflowModel):
     paymentOrderStatus: str | None = Field(default=None, description="One of: Requested, Created")
     activePaymentRequestDate: WflowTimestamp | None = Field(
         default=None, description="Active payment request date (yyyy-mm-ddThh:mm:ss.ffffff)"
+    )
+
+
+class DocumentPrintSettings(WflowModel):
+    """Print and PDF settings of a single document"""
+
+    textAboveLines: str | None = Field(
+        default=None, description="Text printed above the document lines on the generated PDF (max 500 characters)"
+    )
+    textBelowLines: str | None = Field(
+        default=None, description="Text printed below the document lines on the generated PDF (max 500 characters)"
+    )
+    footerText: str | None = Field(
+        default=None, description="Text printed in the footer of the generated PDF (max 500 characters)"
+    )
+    paymentMethod: str | None = Field(default=None, description="One of: BankTransfer, Card, Cash")
+    language: str | None = Field(
+        default=None,
+        description="Language the PDF is printed in, a 2-letter code. Null uses the partner's language, then the workspace default",
+    )
+    templateId: int | None = Field(
+        default=None,
+        description="Legacy print template id. It cannot be discovered through the API: send back the value a read returned, never one of your own. A printSettings object without it clears the template",
     )
 
 
@@ -111,6 +137,10 @@ class DocumentBase(WflowModel):
     exchangeRateUnits: int | None = Field(default=None, description="Exchange rate units")
     tag: str | None = Field(default=None, description="Special document identification")
     orderNo: str | None = Field(default=None, description="Linked order number")
+    buyerReference: str | None = Field(
+        default=None,
+        description="Buyer reference: an identifier the buyer assigns for internal routing, e.g. a department or cost centre code (max 100 characters)",
+    )
     description: str | None = Field(default=None, description="Document description")
     contactPersonName: str | None = Field(default=None, description="Contact person name")
     contactPersonEmail: str | None = Field(default=None, description="Contact person email")
@@ -139,6 +169,13 @@ class DocumentBase(WflowModel):
     dataSource: str | None = Field(default=None, description="One of: ISDOC, ROSSUM, EKASA, API, WFLOWAI, ZUGFERD, UBL")
     source: str | None = Field(default=None, description="One of: Email, Api, MobileApp, WebApp, Rossum, Peppol")
     createdBy: str | None = Field(default=None, description="Name or login of user, who created the document")
+    removedBy: str | None = Field(
+        default=None, description="Name or login of user, who moved the document to the recycle bin"
+    )
+    isBlockedByLimit: bool | None = Field(
+        default=None,
+        description="The workspace's document limit was used up when the document was created; until it is released, only reading, deleting and setting payments are allowed",
+    )
     series: str | None = Field(default=None, description="Serie code - Deprecated")
     type: DocumentTypeBase | None = None
     tags: list[str] | None = Field(default=None, description="Array of tags added to the document")
@@ -178,12 +215,12 @@ class Partner(WflowModel):
 
     id: str | None = Field(default=None, description="Id")
     externalId: str | None = Field(default=None, description="External Id")
-    ic: str | None = Field(default=None, description="Tax ID. (max 10 characters)")
-    vat: str | None = Field(default=None, description="VAT ID.  (max 15 characters)")
+    ic: str | None = Field(default=None, description="Tax ID. (max 20 characters)")
+    vat: str | None = Field(default=None, description="VAT ID. (max 20 characters)")
     name: str | None = Field(default=None, description="Name")
     address: str | None = Field(default=None, description="Address (street, post code, town, country,...)")
     mainAddress: AddressType | None = None
-    localVAT: str | None = Field(default=None, description="Local VAT ID")
+    localVAT: str | None = Field(default=None, description="Local VAT ID. (max 20 characters)")
     note: str | None = Field(default=None, description="Notes")
     phoneNo: str | None = Field(default=None, description="Phone No")
     mailAddress: str | None = Field(default=None, description="E-mail address")
@@ -195,6 +232,10 @@ class Partner(WflowModel):
     )
     isValid: bool | None = Field(default=None, description="Validity attribute")
     businessRegisterRegistration: str | None = Field(default=None, description="Business register registration text")
+    buyerReference: str | None = Field(
+        default=None,
+        description="Buyer reference the partner wants on documents issued to them, e.g. a department or cost centre code (max 100 characters)",
+    )
     customer: bool | None = Field(default=None, description="Customer attribute")
     supplier: bool | None = Field(default=None, description="Supplier attribute")
 
@@ -351,6 +392,10 @@ class Document(WflowModel):
     exchangeRateUnits: int | None = Field(default=None, description="Exchange rate units")
     tag: str | None = Field(default=None, description="Special document identification")
     orderNo: str | None = Field(default=None, description="Linked order number")
+    buyerReference: str | None = Field(
+        default=None,
+        description="Buyer reference: an identifier the buyer assigns for internal routing, e.g. a department or cost centre code (max 100 characters)",
+    )
     description: str | None = Field(default=None, description="Document description")
     contactPersonName: str | None = Field(default=None, description="Contact person name")
     contactPersonEmail: str | None = Field(default=None, description="Contact person email")
@@ -379,6 +424,13 @@ class Document(WflowModel):
     dataSource: str | None = Field(default=None, description="One of: ISDOC, ROSSUM, EKASA, API, WFLOWAI, ZUGFERD, UBL")
     source: str | None = Field(default=None, description="One of: Email, Api, MobileApp, WebApp, Rossum, Peppol")
     createdBy: str | None = Field(default=None, description="Name or login of user, who created the document")
+    removedBy: str | None = Field(
+        default=None, description="Name or login of user, who moved the document to the recycle bin"
+    )
+    isBlockedByLimit: bool | None = Field(
+        default=None,
+        description="The workspace's document limit was used up when the document was created; until it is released, only reading, deleting and setting payments are allowed",
+    )
     series: str | None = Field(default=None, description="Serie code - Deprecated")
     type: DocumentType | None = None
     partner: Partner | None = None
@@ -386,6 +438,7 @@ class Document(WflowModel):
     accounting: Accounting | None = None
     vaTs: list[DocumentVAT] | None = Field(default=None, description="VAT subtotals")
     lines: list[DocumentLine] | None = Field(default=None, description="Lines list")
+    printSettings: DocumentPrintSettings | None = None
     transactionId: str | None = Field(default=None, description="Transaction id")
     expenseCardId: str | None = Field(default=None, description="Card id")
     peppolMessageId: str | None = Field(
@@ -431,7 +484,7 @@ class DocumentEvent(WflowModel):
     id: str | None = None
     type: str | None = Field(
         default=None,
-        description="One of: Create, Update, Delete, Restore, Approved, Unapproved, Locked, Unlocked, Rejected, Returned, FileAdded, FileDeleted, TaskAdded, TaskProcessed, SetDocumentRights, SetDocumentApprovals, DeleteDocumentApprovals, AddDocumentPayment, UpdateDocumentPayment, ChangeProperty, TimeStamped, Signed, AddDocumentPaymentRequest, Delivered, DeliverCanceled, SentByEmail, ReturnedBack, ChangedFlowStatus, ChangedKind, SentForSigning, Confirmed, Unconfirmed, SentFiles, AddDocumentPaymentOrder, DeleteDocumentPayment, DeleteDocumentPaymentRequest, MovedFromOrganization, Split, ChangeDocumentApprovals, Merged, Linked, SetAccess, ExpenseTransactionPaired, ExpenseTransactionUnpaired, SetMainFile, BudgetUpdated, MovedToOtherOrganization, MovedFromOtherOrganization",
+        description="One of: Create, Update, Delete, Restore, Approved, Unapproved, Locked, Unlocked, Rejected, Returned, FileAdded, FileDeleted, TaskAdded, TaskProcessed, SetDocumentRights, SetDocumentApprovals, DeleteDocumentApprovals, AddDocumentPayment, UpdateDocumentPayment, ChangeProperty, TimeStamped, Signed, AddDocumentPaymentRequest, Delivered, DeliverCanceled, SentByEmail, ReturnedBack, ChangedFlowStatus, ChangedKind, SentForSigning, Confirmed, Unconfirmed, SentFiles, AddDocumentPaymentOrder, DeleteDocumentPayment, DeleteDocumentPaymentRequest, MovedFromOrganization, Split, ChangeDocumentApprovals, Merged, Linked, SetAccess, ExpenseTransactionPaired, ExpenseTransactionUnpaired, SetMainFile, BudgetUpdated, MovedToOtherOrganization, MovedFromOtherOrganization, SentViaPeppol, PaymentsSynchronized, ApprovalsTakenOverFromOrder, DeleteDocumentPaymentOrder",
     )
     identity: IdentityBase | None = None
     info: str | None = None
@@ -512,3 +565,15 @@ class ApprovalProcess(WflowModel):
 
     pathName: str | None = Field(default=None, description="Path name")
     items: list[ApprovalProcessItem] | None = Field(default=None, description="Approval process item collection")
+
+
+class CreateDocumentWithFilesResult(WflowModel):
+    """The document create_document_with_files made, and where it ended up."""
+
+    documentId: str | None = Field(default=None, description="The new document's id")
+    newOrganization: str | None = Field(
+        default=None,
+        description=(
+            "Slug of the other workspace of the same customer the document was moved to; null when it was not moved"
+        ),
+    )

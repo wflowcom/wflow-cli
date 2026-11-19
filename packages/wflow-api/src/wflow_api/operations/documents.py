@@ -21,9 +21,10 @@ from wflow_api.models import (
     TeamBase,
     WriteResult,
 )
-from wflow_api.models.common import FileContent
+from wflow_api.models.common import FileContent, UploadFiles
 from wflow_api.models.documents import (
     Comment,
+    CreateDocumentWithFilesResult,
     Document,
     DocumentBase,
     DocumentEvent,
@@ -56,6 +57,12 @@ async def list_documents(
     - `totalAmount`, `taxExclusiveAmount`, `currency`, `exchangeRate` — the money
     - `partnerName`, `partnerIC`, `partnerVAT` — who it is with
     - `approvalStatus`, `flowStatus`, `locked`, `removed` — where it is in its lifecycle
+    - `removedBy` — who moved the document to the recycle bin; cleared when it is restored
+    - `isBlockedByLimit` — the workspace's document limit was used up when the document was
+      created. A blocked document can be read, deleted and have its payments set; every other
+      change is refused. It is released automatically, oldest first, as capacity frees up; one in
+      the recycle bin is not released. It is on the result only: `query` and `sort` cannot use it
+    - `buyerReference` — the buyer's own routing code, e.g. a department or cost centre
     - `type`, `tags`, `createdBy`, `created`, `updated`
     """
     payload = await client.request(
@@ -80,11 +87,17 @@ async def get_document(client: WflowClient, organization: OrgSlug, documentId: s
     - `vaTs` — the VAT breakdown per rate
     - `accounting` — how the document is posted
     - `partner`, `deliveryLocation` — the resolved register records; the list summary
-      carries only the names copied onto the document
+      carries only the names copied onto the document. `partner.buyerReference` is the
+      reference the partner wants on its documents; wflow does not copy it onto this
+      document's `buyerReference` when the document is written through the API
+    - `printSettings` — how the generated PDF is printed: the texts above and below the
+      lines and in the footer, the payment method, the language and the template
 
     Already on the list summary, not new here: `serie` (also a resolved record, not a
-    string), `payment`, `series` (a deprecated code, distinct from `serie`), `source`
-    and `dataSource`.
+    string), `payment`, `series` (a deprecated code, distinct from `serie`), `source`,
+    `dataSource`, `buyerReference`, `removedBy` and `isBlockedByLimit`. A document with
+    `isBlockedByLimit` set can be read, deleted and have its payments set; every other change
+    is refused.
     """
     return Document.model_validate(
         await client.request("GET", f"/api/{organization}/documents/{path_segment(documentId)}") or {}
@@ -121,7 +134,13 @@ async def list_document_events(client: WflowClient, organization: OrgSlug, docum
 
     Fields:
 
-    - `type` — e.g. Create, Update, Approved, Rejected, FileAdded, ChangedFlowStatus
+    - `type` — e.g. Create, Update, Approved, Rejected, FileAdded, ChangedFlowStatus. Four types
+      need explaining:
+      `SentViaPeppol` — the document was queued for Peppol delivery and locked;
+      `PaymentsSynchronized` — a sync changed the document's payments, and `info` holds the
+      payment rows as they were before the change; `ApprovalsTakenOverFromOrder` — the invoice
+      was linked to an order automatically and copied the order's approval path;
+      `DeleteDocumentPaymentOrder` — a payment's payment-order step was removed
     - `identity` — who triggered the event, when known
     - `info` — free-text detail
     - `created` — when it happened
@@ -373,15 +392,30 @@ async def create_document_task(client: WflowClient, organization: OrgSlug, docum
 
 @operation
 async def set_document_task_processed(
-    client: WflowClient, organization: OrgSlug, documentId: str, taskType: str, success: bool
+    client: WflowClient,
+    organization: OrgSlug,
+    documentId: str,
+    taskType: str,
+    success: Annotated[
+        bool | None, Field(default=None, description="Leave out for true; false marks the work as failed")
+    ] = None,
+    message: Annotated[
+        str | None, Field(default=None, description="A note stored on the task, shown in the document's events")
+    ] = None,
 ) -> WriteResult:
     """Record that a document task has been dealt with, and whether it worked.
 
     This is the other half of `create_document_task`: `taskType` is "Extract" or
-    "Export", and `success` false records a failed attempt rather than leaving the
-    document queued. Send it from whatever performed the work. Closing an Export task
-    with `success` true moves the document on in its workflow (e.g. from SentToReview to
-    SentToERP), which is permanent: nothing moves it back.
+    "Export". Send it from whatever performed the work. The call fails if the document
+    has no open task of that type.
+
+    `success` defaults to true when left out; `success` false marks the extraction or
+    export as failed rather than leaving the document queued. `message` is optional: it is
+    stored on the task and appears in the document's events — `list_document_events`
+    shows it as the `info` of the TaskProcessed event — so use it to say what went wrong
+    or what was done. Closing an Export task with `success` true moves the document on in
+    its workflow (e.g. from SentToReview to SentToERP), which is permanent: nothing moves
+    it back.
 
     Fields: on the result —
 
@@ -391,7 +425,7 @@ async def set_document_task_processed(
     await client.request(
         "PUT",
         f"/api/{organization}/documents/{path_segment(documentId)}/task/{path_segment(taskType)}/processed",
-        params=query_params(success=success),
+        params=query_params(success=success, message=message),
     )
     return WriteResult(action="processed", resource="documents/task")
 
@@ -416,6 +450,24 @@ async def update_document(
     changing a document that exists, and send back the fields this operation declares rather
     than the whole read, which also carries the status, timestamps and resolved register
     records that only a read has. `ignoreLock` overrides a lock set by `lock_document`.
+    A document with `isBlockedByLimit` set refuses this write.
+
+    Two fields are exceptions: `buyerReference` and `printSettings` keep their stored value
+    when you leave them out.
+
+    `buyerReference` is not filled in from the partner register: send it when the document
+    needs one. Send `""` to clear it. It takes up to 100 characters; a longer value is cut to
+    that length without an error.
+
+    `printSettings` controls the generated PDF. An object replaces all six settings at once
+    and clears any you leave out, so send the ones you mean to keep as well; `{}` resets them
+    all. `textAboveLines`, `textBelowLines` and `footerText` take up to 500 characters each;
+    a longer text is cut to 500 without an error. `paymentMethod` is one of BankTransfer,
+    Card, Cash. `language` is a 2-letter code, and a longer value is cut to its first two
+    letters; without one the PDF uses the partner's language, then the workspace default.
+    Never choose a `templateId` yourself: it selects a legacy template that cannot be
+    discovered through this API. Send back the `templateId` that `get_document` returned: a
+    `printSettings` object without it clears the template.
 
     Fields: on the result —
 
@@ -534,38 +586,55 @@ async def set_document_rights(
 async def create_document_with_files(
     client: WflowClient,
     organization: OrgSlug,
-    filename: str,
-    content: bytes,
-    typeId: Annotated[str | None, Field(default=None, description="Document type to file it under")] = None,
+    files: UploadFiles,
+    typeId: Annotated[str, Field(min_length=1, description="Document type to file it under, from list_document_types")],
     invoiceType: Annotated[
         str | None,
-        Field(default=None, description="TaxInvoice, CreditNote, DebitNote, Proforma or TaxInvoicePayment"),
+        Field(
+            default=None,
+            description="TaxInvoice, CreditNote, DebitNote, Proforma or TaxInvoicePayment; omitted means TaxInvoice",
+        ),
     ] = None,
-) -> WriteResult:
-    """Create a document from a file: its bytes, and the `filename` wflow should store it under.
+) -> CreateDocumentWithFilesResult:
+    """Create one document from one or more files, each sent as its bytes and the filename wflow should store it under.
 
-    This is how a scan becomes a document: wflow files it under `typeId`, which
-    `list_document_types` names, and reads what it can out of the file itself — an ISDOC,
-    or the QR receipt on a Slovak one — into the new document's fields. It sends one file
-    per call and hands back no document id, so to attach anything further, find the new
-    document with `list_documents` — `sort` of "created desc" puts it first — and pass its
-    id to `upload_document_file`. A refusal for lack of access to the document type means
-    the caller is not in that type's `users`, which `get_document_type` lists.
+    This is how a scan becomes a document: wflow files it under `typeId`, which is
+    required and which `list_document_types` names. The first file becomes the document's
+    main file and the rest its attachments, unless an e-invoice (ISDOCX, UBL or ZUGFeRD)
+    carries an embedded main file, which then takes over. To fill the new document's
+    fields, wflow reads only the first file of each kind (PDF, XML, ISDOC, ISDOCX), and the
+    QR receipt on a Slovak cash slip only from the first file. When the files hold an
+    e-invoice but no PDF, wflow generates one only for an invoice document type, only when
+    the workspace has that turned on, and not when the e-invoice already embeds a PDF.
+    Each file can be at most 10 MB. The first file's name becomes the new document's
+    partner name until one is read from the files or set by hand.
+
+    When wflow recognises the buyer as another workspace of the same customer, it moves the
+    new document there and returns that workspace's slug as `newOrganization`; use that
+    slug, not `organization`, for every follow-up call on the document.
+
+    The call is not all-or-nothing. Only a failure while storing the files (or generating
+    a missing PDF) discards the new document; any other failure, such as while saving the
+    fields read from the files or moving the document to another workspace, or a timeout
+    on your side, can leave the document created. Before retrying a failed call, check
+    `list_documents` for the document (`sort` of "created desc" puts the newest first), or
+    a retry can create a duplicate. A refusal for lack of access to the document type
+    means the caller is not in that type's `users`, which `get_document_type` lists.
 
     Fields: on the result —
 
-    - `action` — "created"
-    - `resource` — "documents/withfiles"
+    - `documentId` — the new document's id
+    - `newOrganization` — the slug of the workspace wflow moved the document to, or null
+      when it stayed in `organization`
     """
-    await client.upload(
+    payload = await client.upload_files(
         "POST",
         f"/api/{organization}/documents/withfiles",
-        filename,
-        content,
+        files,
         params=query_params(typeId=typeId, invoiceType=invoiceType),
         field="uploadedFiles",
     )
-    return WriteResult(action="created", resource="documents/withfiles")
+    return CreateDocumentWithFilesResult.model_validate(payload or {})
 
 
 @operation
@@ -574,17 +643,51 @@ async def export_documents(
     organization: OrgSlug,
     format: str,
     filter: StructuredFilter,
+    markAsExported: Annotated[
+        bool | None,
+        Field(default=None, description="Mark each exported document as sent to your ERP and lock it"),
+    ] = None,
+    parameters: Annotated[
+        str | None,
+        Field(default=None, description="Format-specific settings as a JSON string; required for kros and generic"),
+    ] = None,
     *,
     max_bytes: int | None = None,
 ) -> FileContent:
     """Export a set of documents as one file, in an accounting system's own format.
 
-    `format` is one of "byznyssolitea", "datev", "excel", "generic", "isdoc", "kros",
-    "moneyerp", "moneys3", "mrp", "premier" or "xml"; another value is rejected outright.
+    `format` is one of "bmdcz", "bmdsk", "byznyssolitea", "datev", "excel", "generic",
+    "isdoc", "kros", "moneyerp", "moneys3", "mrp", "premier", "tmfdphcz", "xml" or
+    "zugferd"; another value is rejected outright.
     `filter` chooses which documents go in — `filters` per column, `propertyFilters` per
     custom property, `search` as free text — and **`sort` is required**: pass something
     like "number asc", because wflow fails the export without it, an empty `filter`
     object included. The other three are optional and default to no restriction.
+
+    `markAsExported` true changes the exported documents, not just the file: each one's
+    pending export task is marked done, its status becomes sent-to-ERP and **the document
+    is locked**, so it drops out of `list_documents_to_export`. Documents in the export
+    with no pending export task are skipped silently. The marking happens before the file
+    reaches you: if the download fails, times out or is refused by `max_bytes`, the
+    documents stay marked and locked without you holding the file. `lock_document` can
+    unlock them; their sent-to-ERP status stays.
+
+    `parameters` is a JSON string of settings for the chosen format, with camelCase keys
+    and enum values given by name:
+
+    - excel — `{"includeItems": bool}`
+    - isdoc — `{"format": "standalone"|"archive"|"zip", "excludeDocumentURL": bool}`
+    - moneys3 — `{"sequence": str}`; `sequence` applies only to documents with no series of their own
+    - moneyerp — `{"cashSlipKind": "ProdejkaPrijata"|"PokladniDoklad"|"ZavazkovyDoklad"}`; `sequence` is accepted but
+      has no effect
+    - datev — `{"exportTarget": "Automatic"|"Invoice"|"Ledger"}`
+    - kros — `{"cashSlipType": "pd"|"id", "incomingInvoiceTarget": "inv"|"eud"}`, required for kros
+    - generic — `{"definitionId": guid}`, required for generic, and definition ids are not
+      available through this API
+    - zugferd — `{"version": "Version1"|"Version20"|"Version23", "profile": str, "outputFormat": "Pdf"|"Xml"}`;
+      left out, it is version 2.3, the Extended profile and XML
+
+    Other formats ignore it.
 
     wflow streams the export file itself, whatever the format, and it comes back as its own
     bytes. With `max_bytes` set, a larger export is refused rather than truncated.
@@ -600,4 +703,5 @@ async def export_documents(
         "POST",
         json=write_json(filter.with_empty_restrictions()),
         max_bytes=max_bytes,
+        params=query_params(markAsExported=markAsExported, parameters=parameters),
     )

@@ -21,6 +21,10 @@ async def get_organization(client: WflowClient, organization: OrgSlug) -> Organi
     - `allowSupportAccess` — whether wflow support may enter this workspace
     - `trialExpiration` — trial end date, or null when not on a trial
     - `authenticationPolicy`, `biDashboardStatus`, `biDashboardTrialExpires`
+    - `limit` — the workspace's document limit; null means unlimited. The workspace gets
+      `documentsPerMonth` times `period` documents per window, `period` is in months, and the windows
+      run back to back from the first day of `validFrom`'s month
+    - `peppolVerified` — wflow has verified the workspace for Peppol
     """
     return Organization.model_validate(await client.request("GET", f"/api/{organization}/organization") or {})
 
@@ -45,6 +49,9 @@ async def get_organization_settings(client: WflowClient, organization: OrgSlug) 
     - `autoLinkPartner`, `sortDocumentsByIc` — partner matching
     - `enableLinesApproval`, `autoCloneLastDocumentAccounting`, `vatInclusiveBudgets`
     - `allowSupportAccess`, `trialExpiration`
+    - `printThemeId` — the theme the PDF engine prints the workspace's documents with; null keeps
+      them on the legacy print
+    - `printColor` — the accent colour of printed documents, as `#RRGGBB`
     """
     return OrganizationSettings.model_validate(
         await client.request("GET", f"/api/{organization}/organization/settings") or {}

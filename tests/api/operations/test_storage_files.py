@@ -1,3 +1,4 @@
+import inspect
 import json
 
 import pytest
@@ -397,3 +398,22 @@ async def test_a_storage_upload_given_text_instead_of_bytes_sends_nothing():
         await storage_files.upload_storage_file(client, "acme", "scan.pdf", "scan.pdf", folderId="fo-1")
 
     assert requests == []
+
+
+def test_the_storage_property_definition_description_states_what_is_stored():
+    doc = " ".join(inspect.getdoc(storage_files.update_storage_file_property_definition).split())
+
+    assert "`kinds` and `data` are never stored" in doc
+    assert "a `LIST` cannot carry its choices" in doc
+    assert "`BOOL`, `STRING`, `NUMERIC`, `DATETIME`, `LINK`, `LIST` (case-insensitive)" in doc
+    assert "anything else is stored as `UNDEFINED`" in doc
+    assert "always `null`; fall back to the `id` you sent" in doc
+    assert "reliably stored" not in doc
+    assert "omit a document kind" not in doc
+    assert "omit a choice" not in doc
+
+
+def test_the_restore_description_says_a_target_folder_is_always_needed():
+    doc = " ".join(inspect.getdoc(storage_files.restore_storage_file).split())
+
+    assert "always needs a target folder" in doc

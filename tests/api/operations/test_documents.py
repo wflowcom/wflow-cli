@@ -1,3 +1,4 @@
+import inspect
 import json
 from datetime import UTC, datetime
 
@@ -5,6 +6,7 @@ import pytest
 
 from tests.helpers import mock_wflow
 from wflow_api.errors import WflowApiError, WflowError
+from wflow_api.models.documents import Document, DocumentBase, DocumentEvent, DocumentPrintSettings
 from wflow_api.models.requests import DocumentUpdate
 from wflow_api.operations import document_files, documents
 
@@ -340,6 +342,37 @@ async def test_each_parameter_write_builds_its_request(name, arguments, method, 
         assert requests[0].url.params[key] == value
 
 
+async def test_a_processed_task_without_success_leaves_wflows_default():
+    path = "/api/acme/documents/d-1/task/Export/processed"
+    client, requests = mock_wflow({path: None})
+
+    await documents.set_document_task_processed(client, organization="acme", documentId="d-1", taskType="Export")
+
+    assert not requests[0].url.params
+
+
+async def test_a_failed_task_carries_its_message():
+    path = "/api/acme/documents/d-1/task/Export/processed"
+    client, requests = mock_wflow({path: None})
+
+    await documents.set_document_task_processed(
+        client, organization="acme", documentId="d-1", taskType="Export", success=False, message="ERP rejected VAT"
+    )
+
+    assert dict(requests[0].url.params) == {"success": "false", "message": "ERP rejected VAT"}
+
+
+def test_the_task_processed_description_states_the_default_the_message_and_the_failure():
+    doc = " ".join(inspect.getdoc(documents.set_document_task_processed).split())
+
+    assert "defaults to true" in doc
+    assert "marks the extraction or export as failed" in doc
+    assert "stored on the task" in doc
+    assert "`list_document_events`" in doc and "TaskProcessed" in doc and "`info`" in doc
+    assert "fails if the document has no open task of that type" in doc
+    assert "which is permanent: nothing moves it back" in doc
+
+
 @pytest.mark.parametrize(
     "name,arguments,path,body,response,outcome",
     [
@@ -409,6 +442,66 @@ async def test_a_date_in_a_body_leaves_as_a_string_rather_than_raising():
     assert json.loads(requests[0].content) == {"number": "2026001", "issueDate": "2026-01-15T00:00:00Z"}
 
 
+async def test_a_document_update_sends_an_empty_print_settings_object_to_reset_it():
+    client, requests = mock_wflow({"/api/acme/documents": "d-1"})
+
+    await documents.update_document(client, organization="acme", document={"id": "d-1", "printSettings": {}})
+
+    assert json.loads(requests[0].content) == {"id": "d-1", "printSettings": {}}
+
+
+async def test_an_empty_buyer_reference_passes_the_guard_and_is_sent():
+    client, requests = mock_wflow({"/api/acme/documents": "d-1"})
+
+    await documents.update_document(
+        client,
+        organization="acme",
+        document={
+            "id": "d-1",
+            "buyerReference": "",
+            "printSettings": {"footerText": "Thanks", "paymentMethod": "BankTransfer"},
+        },
+    )
+
+    assert json.loads(requests[0].content) == {
+        "id": "d-1",
+        "buyerReference": "",
+        "printSettings": {"footerText": "Thanks", "paymentMethod": "BankTransfer"},
+    }
+
+
+async def test_a_document_read_carries_the_new_fields():
+    body = {
+        **DOCUMENT_BODY,
+        "buyerReference": "DEP-7",
+        "removedBy": "jan@acme.cz",
+        "isBlockedByLimit": True,
+        "printSettings": {"language": "en"},
+        "partner": {"id": "p-1", "buyerReference": "DEP-7"},
+    }
+    client, _ = mock_wflow({"/api/acme/documents/d-1": body})
+
+    result = await documents.get_document(client, organization="acme", documentId="d-1")
+
+    assert (result.buyerReference, result.removedBy, result.isBlockedByLimit) == ("DEP-7", "jan@acme.cz", True)
+    assert result.printSettings is not None and result.printSettings.language == "en"
+    assert result.partner is not None and result.partner.buyerReference == "DEP-7"
+    assert not result.model_extra
+    assert not result.printSettings.model_extra
+    assert not result.partner.model_extra
+
+
+async def test_a_document_summary_carries_the_new_fields():
+    body = {"items": [{"id": "d-1", "buyerReference": "DEP-7", "removedBy": "jan@acme.cz", "isBlockedByLimit": False}]}
+    client, _ = mock_wflow({"/api/acme/documents": body})
+
+    result = await documents.list_documents(client, organization="acme")
+
+    summary = result.items[0]
+    assert (summary.buyerReference, summary.removedBy, summary.isBlockedByLimit) == ("DEP-7", "jan@acme.cz", False)
+    assert not summary.model_extra
+
+
 async def test_metadata_travels_as_a_json_string_with_a_content_type():
     client, requests = mock_wflow({"/api/acme/documents/d-1/metadata": None})
 
@@ -431,6 +524,12 @@ async def test_metadata_travels_as_a_json_string_with_a_content_type():
             {"document": {"lines": [{"quantity": 1.0}, {"quantitiy": 2.0}]}},
             "/api/acme/documents",
             r"lines\[1\]\.quantitiy",
+        ),
+        (
+            "update_document",
+            {"document": {"id": "d-1", "printSettings": {"footer": "x"}}},
+            "/api/acme/documents",
+            r"printSettings\.footer",
         ),
         (
             "update_document_payments",
@@ -492,3 +591,70 @@ async def test_a_document_wflow_does_not_know_is_an_api_error_naming_the_path():
         await documents.get_document(client, organization="acme", documentId="d-404")
 
     assert failed.value.status == 404
+
+
+NEW_EVENT_TYPES = ("SentViaPeppol", "PaymentsSynchronized", "ApprovalsTakenOverFromOrder", "DeleteDocumentPaymentOrder")
+
+
+def test_the_new_event_types_are_documented():
+    description = DocumentEvent.model_fields["type"].description or ""
+    listed = description.removeprefix("One of: ").split(", ")
+
+    assert all(event_type in listed for event_type in NEW_EVENT_TYPES)
+
+
+def test_the_event_list_explains_the_new_event_types():
+    description = " ".join((documents.list_document_events.__doc__ or "").split())
+
+    assert "Four types need explaining:" in description
+    for meaning in (
+        "`SentViaPeppol` — the document was queued for Peppol delivery and locked",
+        "`PaymentsSynchronized` — a sync changed the document's payments, and `info` holds the payment rows as "
+        "they were before the change",
+        "`ApprovalsTakenOverFromOrder` — the invoice was linked to an order automatically and copied the order's "
+        "approval path",
+        "`DeleteDocumentPaymentOrder` — a payment's payment-order step was removed",
+    ):
+        assert meaning in description
+
+
+@pytest.mark.parametrize("model", [DocumentBase, Document])
+def test_a_blocked_document_says_what_is_still_allowed(model):
+    description = " ".join((model.model_fields["isBlockedByLimit"].description or "").split())
+
+    assert "The workspace's document limit was used up when the document was created" in description
+    assert "until it is released, only reading, deleting and setting payments are allowed" in description
+
+
+def test_the_document_read_lists_the_new_summary_fields_and_what_a_blocked_document_allows():
+    description = " ".join((documents.get_document.__doc__ or "").split())
+
+    assert "`source`, `dataSource`, `buyerReference`, `removedBy` and `isBlockedByLimit`." in description
+    assert (
+        "A document with `isBlockedByLimit` set can be read, deleted and have its payments set; every other "
+        "change is refused."
+    ) in description
+
+
+def test_the_document_update_names_its_two_exceptions_to_sending_the_full_record():
+    description = " ".join((documents.update_document.__doc__ or "").split())
+
+    assert (
+        "Two fields are exceptions: `buyerReference` and `printSettings` keep their stored value when you leave "
+        "them out."
+    ) in description
+    assert "Left out" not in description
+    assert 'Send `""` to clear it' in description
+    assert "`{}` resets them all" in description
+
+
+def test_the_document_update_says_a_print_settings_object_without_the_template_clears_it():
+    description = " ".join((documents.update_document.__doc__ or "").split())
+    field = " ".join((DocumentPrintSettings.model_fields["templateId"].description or "").split())
+
+    assert (
+        "Send back the `templateId` that `get_document` returned: a `printSettings` object without it clears the "
+        "template."
+    ) in description
+    assert "leaving it out clears it" not in description
+    assert "A printSettings object without it clears the template" in field

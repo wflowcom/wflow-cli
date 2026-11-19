@@ -50,6 +50,7 @@ LEAF_BY_TAG = {
     "Organization": "admin",
     "WebHookRegistrations": "integrations",
     "Integrations": "integrations",
+    "Peppol": "documents",
 }
 
 TOOL_NAMES = {
@@ -181,6 +182,15 @@ TOOL_NAMES = {
     ("get", "/api/{organization}/organization/settings"): "get_organization_settings",
     ("get", "/api/{organization}/documents/{documentId}/comments"): "list_document_comments",
     ("put", "/api/{organization}/documents/{documentId}/payments"): "update_document_payments",
+    ("get", "/api/{organization}/peppol/messages"): "list_peppol_messages",
+    ("get", "/api/{organization}/peppol/messages/{id}/detail"): "get_peppol_message_detail",
+    ("get", "/api/{organization}/peppol/messages/{id}/attachment"): "download_peppol_message_attachment",
+    ("put", "/api/{organization}/peppol/messages/{id}/accept"): "accept_peppol_message",
+    ("put", "/api/{organization}/peppol/messages/{id}/conditionallyaccept"): "accept_peppol_message_conditionally",
+    ("put", "/api/{organization}/peppol/messages/{id}/underquery"): "mark_peppol_message_under_query",
+    ("put", "/api/{organization}/peppol/messages/{id}/paid"): "mark_peppol_message_paid",
+    ("put", "/api/{organization}/peppol/messages/{id}/reject"): "reject_peppol_message",
+    ("post", "/api/{organization}/documents/{documentId}/peppol/send"): "send_document_via_peppol",
 }
 
 
