@@ -46,7 +46,10 @@ class TeamBase(WflowModel):
 class DocumentTypeBase(WflowModel):
     id: str | None = None
     name: str | None = None
-    kind: str | None = Field(default=None, description="e.g. IncomingInvoice, Contract")
+    kind: str | None = Field(
+        default=None,
+        description="One of: IncomingInvoice, OutgoingInvoice, ExpenditureCashSlip, SupplierOrder, CustomerOrder, Other, Contract, IncomeCashReceipt",
+    )
     default: bool | None = None
 
 
@@ -71,6 +74,17 @@ class UserFull(WflowModel):
 Account = UserFull
 
 
+class OrganizationLimit(WflowModel):
+    """The workspace's document limit"""
+
+    documentsPerMonth: int | None = Field(default=None, description="Documents allowed per month of the window")
+    period: int | None = Field(default=None, description="Length of one limit window, in months")
+    validFrom: WflowTimestamp | None = Field(
+        default=None,
+        description="The limit applies from this date; its windows run back to back from the first day of this date's month",
+    )
+
+
 class Organization(WflowModel):
     """The workspace's own identity, as returned by get_organization."""
 
@@ -92,6 +106,11 @@ class Organization(WflowModel):
     biDashboardTrialExpires: WflowTimestamp | None = Field(
         default=None, description="Gets or sets the bi dashboard trial expires."
     )
+    limit: OrganizationLimit | None = Field(
+        default=None,
+        description="Null means unlimited. Otherwise documentsPerMonth times period documents per window of period months",
+    )
+    peppolVerified: bool | None = Field(default=None, description="wflow has verified the workspace for Peppol")
 
 
 class OrganizationSettings(WflowModel):
@@ -125,3 +144,8 @@ class OrganizationSettings(WflowModel):
     vatInclusiveBudgets: bool | None = None
     trialExpiration: WflowTimestamp | None = Field(default=None, description="Gets or sets the trial expiration date.")
     fiscalYearStart: int | None = None
+    printThemeId: str | None = Field(
+        default=None,
+        description="Theme the PDF engine renders the workspace's documents with (max 20 characters). Null keeps them on the legacy print",
+    )
+    printColor: str | None = Field(default=None, description="Accent colour of the printed documents, as #RRGGBB")

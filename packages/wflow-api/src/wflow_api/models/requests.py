@@ -9,12 +9,12 @@ then review the diff; hand-written descriptions live here and must not be lost.
 Every field is optional, and operations serialise with `model_dump(exclude_none=True)`: a whole-record
 write that sent every unset optional as null would clear data the caller never mentioned.
 
-That command's dependency closure emits 32 classes, not the 23 below. The other 9 are schemas
+That command's dependency closure emits 33 classes, not the 23 below. The other 10 are schemas
 this codebase already models elsewhere, so delete them from the regenerated output — one name
-must mean one shape. Four are imported back, so that every write body is reachable from here:
+must mean one shape. Five are imported back, so that every write body is reachable from here:
 
 - from wflow_api.models.admin: ApprovalsTemplatesTeam, WebHookRegistration
-- from wflow_api.models.documents: DocumentTypeFull, PropertyDefinition
+- from wflow_api.models.documents: DocumentPrintSettings, DocumentTypeFull, PropertyDefinition
 
 The remaining five — `Identity`, `SequenceBase`, `UserBase` and `UserPermission` from
 wflow_api.models.documents, `Serie` from wflow_api.models.registers — reach the closure only as
@@ -26,7 +26,11 @@ from pydantic import Field
 
 from wflow_api.models.admin import ApprovalsTemplatesTeam, WebHookRegistration  # noqa: F401 — re-exported
 from wflow_api.models.common import WflowModel, WflowTimestamp
-from wflow_api.models.documents import DocumentTypeFull, PropertyDefinition  # noqa: F401 — re-exported
+from wflow_api.models.documents import (  # noqa: F401 — re-exported
+    DocumentPrintSettings,
+    DocumentTypeFull,
+    PropertyDefinition,
+)
 
 
 class DocumentUpdateType(WflowModel):
@@ -195,6 +199,10 @@ class DocumentUpdate(WflowModel):
     exchangeRateUnits: int | None = Field(default=None, description="Exchange rate units")
     tag: str | None = Field(default=None, description="Special document identification")
     orderNo: str | None = Field(default=None, description="Linked order number")
+    buyerReference: str | None = Field(
+        default=None,
+        description="Buyer reference: an identifier the buyer assigns for internal routing, e.g. a department or cost centre code (max 100 characters)",
+    )
     description: str | None = Field(default=None, description="Document description")
     contactPersonName: str | None = Field(default=None, description="Contact person name")
     contactPersonEmail: str | None = Field(default=None, description="Contact person email")
@@ -214,6 +222,7 @@ class DocumentUpdate(WflowModel):
     vaTs: list[DocumentUpdateVat] | None = Field(default=None, description="VAT subtotals")
     lines: list[DocumentUpdateLine] | None = Field(default=None, description="Lines list")
     accounting: DocumentUpdateAccounting | None = None
+    printSettings: DocumentPrintSettings | None = None
     taxExclusiveAmount: float | None = None
     taxAmount: float | None = None
 

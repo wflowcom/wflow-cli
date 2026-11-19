@@ -4,8 +4,9 @@ from datetime import datetime
 import pytest
 
 from wflow_api.models import Account, WflowModel, WriteResult
+from wflow_api.models.account import DocumentTypeBase
 from wflow_api.models.common import FileContent
-from wflow_api.models.documents import DocumentBase
+from wflow_api.models.documents import DocumentBase, DocumentType
 
 
 def test_unknown_fields_survive():
@@ -68,3 +69,20 @@ def test_the_mcp_only_types_are_not_part_of_the_library():
 
     for name in ("ArchiveFormat", "FileDownload", "Playbook", "PlaybookBase", "UploadId", "UploadTicket"):
         assert not hasattr(models, name), name
+
+
+def test_a_document_type_reference_names_every_kind():
+    description = DocumentTypeBase.model_fields["kind"].description or ""
+    kinds = (
+        "IncomingInvoice",
+        "OutgoingInvoice",
+        "ExpenditureCashSlip",
+        "SupplierOrder",
+        "CustomerOrder",
+        "Other",
+        "Contract",
+        "IncomeCashReceipt",
+    )
+
+    assert all(kind in description.removeprefix("One of: ").split(", ") for kind in kinds)
+    assert description == DocumentType.model_fields["kind"].description

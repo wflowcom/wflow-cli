@@ -134,6 +134,10 @@ class PartnerFull(WflowModel):
     language: str | None = Field(default=None, description="ISO 639-1 code")
     isValid: bool | None = None
     businessRegisterRegistration: str | None = None
+    buyerReference: str | None = Field(
+        default=None,
+        description="Buyer reference the partner wants on documents issued to them, e.g. a department or cost centre code (max 100 characters)",
+    )
     customer: bool | None = None
     supplier: bool | None = None
     accountNo: str | None = None
